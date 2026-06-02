@@ -502,6 +502,15 @@ function getDurationMinutes(steps) {
     return total;
 }
 
+function formatDuration(minutes) {
+    if (minutes >= 60) {
+        const hrs = Math.floor(minutes / 60);
+        const mins = minutes % 60;
+        return mins > 0 ? `${hrs}h ${mins}m` : `${hrs}h`;
+    }
+    return `${minutes}m`;
+}
+
 // Step 1: Click Routine -> Show Variant selector
 function selectRoutine(routineKey) {
     const routine = ROUTINES_DB[routineKey];
@@ -522,6 +531,7 @@ function selectRoutine(routineKey) {
         
         const logo = getVariantLogo(varName);
         const totalMin = getDurationMinutes(steps);
+        const durationStr = formatDuration(totalMin);
         
         const now = new Date();
         const finishTime = new Date(now.getTime() + totalMin * 60 * 1000);
@@ -530,7 +540,7 @@ function selectRoutine(routineKey) {
         btn.innerHTML = `
             <div class="variant-btn-details">
                 <span class="variant-btn-title">${logo} ${varName}</span>
-                <span class="variant-btn-meta">⏱️ ${totalMin} min • Finishes at ${finishTimeStr}</span>
+                <span class="variant-btn-meta">⏱️ ${durationStr} • Finishes at ${finishTimeStr}</span>
             </div>
             <span class="badge-pill">${steps.length} Steps</span>
         `;
