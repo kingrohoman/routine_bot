@@ -651,31 +651,6 @@ function updateTimerDisplays() {
         const stepSecs = (STATE.stepSeconds % 60).toString().padStart(2, '0');
         stepTimerEl.innerText = `${stepMins}:${stepSecs}`;
     }
-    
-    // 3. Overall Pace Delta Badge
-    const deltaEl = document.getElementById("timer-delta");
-    if (deltaEl) {
-        if (STATE.currentStepIndex === 0) {
-            deltaEl.style.display = "none";
-        } else {
-            const targetSeconds = getCumulativeEstimateSeconds(STATE.currentStepIndex);
-            const delta = STATE.elapsedSeconds - targetSeconds;
-            
-            const sign = delta > 0 ? "+" : (delta < 0 ? "-" : "");
-            const absDelta = Math.abs(delta);
-            const deltaMins = Math.floor(absDelta / 60).toString().padStart(2, '0');
-            const deltaSecs = (absDelta % 60).toString().padStart(2, '0');
-            
-            deltaEl.innerText = `${sign}${deltaMins}:${deltaSecs}`;
-            deltaEl.style.display = "inline-flex";
-            
-            if (delta > 0) {
-                deltaEl.className = "timer-delta-badge behind";
-            } else {
-                deltaEl.className = "timer-delta-badge ahead";
-            }
-        }
-    }
 }
 
 // Render Sidebar Steps List
