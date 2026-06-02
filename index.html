@@ -250,6 +250,18 @@
                             <input type="checkbox" id="setting-sound" checked>
                             <label for="setting-sound">Play Audio feedback cues</label>
                         </div>
+                        <div class="form-divider" style="margin: 20px 0; border-top: 1px solid var(--border-color);"></div>
+                        <h3>Tana Input API Integration</h3>
+                        <div class="form-group" style="margin-top: 12px;">
+                            <label for="setting-tana-token">Tana API Token</label>
+                            <input type="password" id="setting-tana-token" placeholder="Paste your Tana API Token">
+                            <p class="form-help">Generate this token in Tana Settings -> API Tokens.</p>
+                        </div>
+                        <div class="form-group">
+                            <label for="setting-tana-node">Tana Target Node ID</label>
+                            <input type="text" id="setting-tana-node" placeholder="INBOX" value="INBOX">
+                            <p class="form-help">Target Node ID where the outline will be pushed. Defaults to 'INBOX'.</p>
+                        </div>
                     </form>
                     <div class="modal-actions">
                         <button class="footer-btn secondary-btn" id="btn-clear-cache">Reset Local Data</button>

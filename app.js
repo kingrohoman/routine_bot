@@ -272,6 +272,8 @@ const STATE = {
     settings: {
         webhookUrl: "http://localhost:8080/api/routine/trigger",
         webhookToken: "",
+        tanaToken: "",
+        tanaTargetNodeId: "INBOX",
         soundEnabled: true,
         notificationsEnabled: false,
         theme: "dark"
@@ -957,7 +959,87 @@ function finishRoutine() {
         total_steps: nSteps
     });
     
+    // Tana Sync Trigger
+    if (STATE.settings.tanaToken) {
+        pushToTanaAPI();
+    } else {
+        const syncStatusEl = document.getElementById("tana-sync-status");
+        if (syncStatusEl) {
+            syncStatusEl.innerText = "READY";
+            syncStatusEl.className = "status-indicator ready";
+        }
+    }
+    
     showView("complete");
+}
+
+async function pushToTanaAPI() {
+    const syncStatusEl = document.getElementById("tana-sync-status");
+    if (syncStatusEl) {
+        syncStatusEl.innerText = "SYNCING...";
+        syncStatusEl.className = "status-indicator syncing";
+    }
+    
+    const nowTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const targetNodeId = STATE.settings.tanaTargetNodeId || "INBOX";
+    
+    // Construct Tana Nodes Payload
+    const nodes = [
+        {
+            name: `Completed ${STATE.activeRoutine.title} (${STATE.activeVariant}) at ${nowTime} #project-log`,
+            children: STATE.activeSteps.map((step, idx) => {
+                const log = STATE.stepLogs[idx];
+                const bullet = (log && log.status === "completed") ? "✓" : "x";
+                const actualSeconds = STATE.stepDurations[idx] || 0;
+                const formattedActual = formatActualDuration(actualSeconds);
+                const timeLog = log ? log.time : nowTime;
+                return {
+                    name: `${bullet} ${step.task} (${formattedActual} at ${timeLog})`
+                };
+            })
+        }
+    ];
+    
+    const payload = {
+        targetNodeId: targetNodeId,
+        nodes: nodes
+    };
+    
+    try {
+        console.log(`[Tana Sync] Pushing payload to Tana API under node ID: ${targetNodeId}`);
+        const response = await fetch("https://core.tana.inc/production/api/push", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${STATE.settings.tanaToken}`
+            },
+            body: JSON.stringify(payload),
+            mode: "cors"
+        });
+        
+        if (response.ok) {
+            console.log("[Tana Sync] Successfully pushed routine to Tana.");
+            if (syncStatusEl) {
+                syncStatusEl.innerText = "SYNCED";
+                syncStatusEl.className = "status-indicator ready";
+            }
+            showToast("Synced to Tana Inbox!");
+        } else {
+            console.warn(`[Tana Sync] Push failed. Status: ${response.status}`);
+            if (syncStatusEl) {
+                syncStatusEl.innerText = "FAILED";
+                syncStatusEl.className = "status-indicator failed";
+            }
+            showToast(`Tana push failed: HTTP ${response.status}`);
+        }
+    } catch (err) {
+        console.error("[Tana Sync] Error pushing to Tana:", err);
+        if (syncStatusEl) {
+            syncStatusEl.innerText = "FAILED";
+            syncStatusEl.className = "status-indicator failed";
+        }
+        showToast("Tana API Sync failed (CORS/Network error)");
+    }
 }
 
 // 4. Persistence & Local Storage Caching
@@ -1019,6 +1101,8 @@ function showToast(message) {
 function openSettings() {
     document.getElementById("setting-webhook").value = STATE.settings.webhookUrl;
     document.getElementById("setting-token").value = STATE.settings.webhookToken;
+    document.getElementById("setting-tana-token").value = STATE.settings.tanaToken || "";
+    document.getElementById("setting-tana-node").value = STATE.settings.tanaTargetNodeId || "INBOX";
     document.getElementById("setting-sound").checked = STATE.settings.soundEnabled;
     document.getElementById("setting-notifications").checked = STATE.settings.notificationsEnabled;
     
@@ -1032,6 +1116,8 @@ function closeSettings() {
 function saveSettings() {
     STATE.settings.webhookUrl = document.getElementById("setting-webhook").value;
     STATE.settings.webhookToken = document.getElementById("setting-token").value;
+    STATE.settings.tanaToken = document.getElementById("setting-tana-token").value.trim();
+    STATE.settings.tanaTargetNodeId = document.getElementById("setting-tana-node").value.trim() || "INBOX";
     STATE.settings.soundEnabled = document.getElementById("setting-sound").checked;
     STATE.settings.notificationsEnabled = document.getElementById("setting-notifications").checked;
     
@@ -1051,6 +1137,8 @@ function resetLocalCache() {
         STATE.settings = {
             webhookUrl: "http://localhost:8080/api/routine/trigger",
             webhookToken: "",
+            tanaToken: "",
+            tanaTargetNodeId: "INBOX",
             soundEnabled: true,
             notificationsEnabled: false,
             theme: "dark"

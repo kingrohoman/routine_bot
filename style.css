@@ -1152,12 +1152,34 @@ h1, h2, h3, h4, .header-logo, .step-title {
 .status-indicator {
     font-size: 0.7rem;
     font-weight: 700;
-    color: #10b981;
-    background-color: rgba(16, 185, 129, 0.1);
-    border: 1px solid rgba(16, 185, 129, 0.2);
     padding: 2px 8px;
     border-radius: 8px;
     text-transform: uppercase;
+    display: inline-block;
+}
+
+.status-indicator.ready {
+    color: #10b981;
+    background-color: rgba(16, 185, 129, 0.1);
+    border: 1px solid rgba(16, 185, 129, 0.2);
+}
+
+.status-indicator.syncing {
+    color: #3b82f6;
+    background-color: rgba(59, 130, 246, 0.1);
+    border: 1px solid rgba(59, 130, 246, 0.2);
+}
+
+.status-indicator.failed {
+    color: #ef4444;
+    background-color: rgba(239, 68, 68, 0.1);
+    border: 1px solid rgba(239, 68, 68, 0.2);
+}
+
+.status-indicator.disabled {
+    color: var(--text-muted);
+    background-color: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.05);
 }
 
 .integration-card p {
@@ -1616,14 +1638,16 @@ body.light-theme .modal-card {
 }
 
 body.light-theme input[type="url"],
-body.light-theme input[type="password"] {
+body.light-theme input[type="password"],
+body.light-theme input[type="text"] {
     background-color: rgba(0, 0, 0, 0.02);
     border-color: rgba(0, 0, 0, 0.08);
     color: #0f172a;
 }
 
 body.light-theme input[type="url"]:focus,
-body.light-theme input[type="password"]:focus {
+body.light-theme input[type="password"]:focus,
+body.light-theme input[type="text"]:focus {
     border-color: #6366f1;
     background-color: #ffffff;
 }
