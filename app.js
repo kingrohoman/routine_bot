@@ -24,7 +24,7 @@ const ROUTINES_DB = {
                 { task: "Gym Hygiene", emoji: "🚿", signifier: "critical", est: "15 min", notes: "Complete your hygiene routine (Shower, Brush, Sunscreen, Deo) and change clothes at the gym" },
                 { task: "Commute to Work", emoji: "🚗", signifier: "critical", est: "15 min", notes: "Leave for work by 8:30 AM" }
             ],
-            "Low Energy / Late": [
+            "Low Energy": [
                 { task: "Wake Up", emoji: "🌅", signifier: "critical", est: "2 min", notes: "Downshift expectations today and wake up gently" },
                 { task: "Bathroom & Wudu", emoji: "💧", signifier: "critical", est: "5 min", notes: "Perform wudu required for morning prayer" },
                 { task: "Pray Fajr", emoji: "🕌", signifier: "critical", est: "10 min", notes: "Spiritual connection (make up qada immediately if missed)" },
@@ -45,16 +45,6 @@ const ROUTINES_DB = {
                 { task: "Sunlight Walk", emoji: "☀️", signifier: "important", est: "20 min", notes: "Take a relaxed 20–30 minute outdoor walk to soak in morning sun" },
                 { task: "Hygiene", emoji: "🚿", signifier: "critical", est: "15 min", notes: "Perform a full, unhurried hygiene routine at home" },
                 { task: "Family Breakfast", emoji: "🥞", signifier: "optional", est: "30 min", notes: "Enjoy a relaxed breakfast, connect with family, and avoid rushing" }
-            ],
-            "Poor Sleep / Zain Wake": [
-                { task: "Wake Up", emoji: "🥱", signifier: "critical", est: "2 min", notes: "Sleep was disrupted by Zain or active nights — wake up gently" },
-                { task: "Bathroom & Wudu", emoji: "💧", signifier: "critical", est: "5 min", notes: "Perform wudu required for prayer" },
-                { task: "Pray Fajr", emoji: "🕌", signifier: "critical", est: "10 min", notes: "Spiritual connection (make up immediately if late)" },
-                { task: "Hydrate", emoji: "🥛", signifier: "critical", est: "2 min", notes: "Drink extra water to combat fatigue" },
-                { task: "Mental Intention", emoji: "🧠", signifier: "important", est: "1 min", notes: "Orient your mind with a quick mental answer — no writing" },
-                { task: "Light Walk", emoji: "🚶", signifier: "important", est: "10 min", notes: "Skip heavy lifting today. Perform a light 10-minute walk outside for light exposure." },
-                { task: "Deep Rest Protocol", emoji: "💤", signifier: "important", est: "10 min", notes: "Run a 10-minute Non-Sleep Deep Rest (NSDR) session to restore cognitive function.", callout: { type: "tip", title: "NSDR Focus", text: "10 min of NSDR can recover cognitive function after a severely broken night of sleep." } },
-                { task: "Hygiene", emoji: "🧴", signifier: "critical", est: "8 min", notes: "Compressed home hygiene: Brush, Sunscreen, and clothes" }
             ]
         }
     },
