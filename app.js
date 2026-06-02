@@ -261,6 +261,8 @@ const STATE = {
     startTime: null,
     timerInterval: null,
     elapsedSeconds: 0,
+    stepSeconds: 0,
+    stepDurations: [],
     completedCount: 0,
     skippedCount: 0,
     stepLogs: [],
@@ -502,6 +504,39 @@ function formatDuration(minutes) {
     return `${minutes}m`;
 }
 
+function parseEstToSeconds(estStr) {
+    if (!estStr) return 0;
+    const matches = estStr.match(/\d+/g);
+    if (!matches || matches.length === 0) return 0;
+    let mins = 0;
+    if (matches.length > 1) {
+        mins = parseInt(matches[1], 10); // Upper bound
+    } else {
+        mins = parseInt(matches[0], 10);
+    }
+    return mins * 60;
+}
+
+function getCumulativeEstimateSeconds(untilIndex) {
+    let totalSeconds = 0;
+    for (let i = 0; i < untilIndex; i++) {
+        const step = STATE.activeSteps[i];
+        if (step) {
+            totalSeconds += parseEstToSeconds(step.est);
+        }
+    }
+    return totalSeconds;
+}
+
+function formatActualDuration(seconds) {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    if (mins > 0) {
+        return `${mins}m ${secs}s`;
+    }
+    return `${secs}s`;
+}
+
 // Step 1: Click Routine -> Show Variant selector
 function selectRoutine(routineKey) {
     const routine = ROUTINES_DB[routineKey];
@@ -556,6 +591,8 @@ function startRoutine(routineKey, variantName) {
     STATE.completedCount = 0;
     STATE.skippedCount = 0;
     STATE.elapsedSeconds = 0;
+    STATE.stepSeconds = 0;
+    STATE.stepDurations = [];
     STATE.stepLogs = [];
     STATE.startTime = new Date();
     
@@ -572,13 +609,16 @@ function startRoutine(routineKey, variantName) {
     
     // Reset Play/Pause visual states
     STATE.isTimerPaused = false;
-    const playIcon = document.getElementById("icon-timer-play");
-    const pauseIcon = document.getElementById("icon-timer-pause");
+    const playIcon = document.getElementById("icon-theme-sun"); // note theme sun holds dark mode theme toggle icon
     const playPauseBtn = document.getElementById("btn-timer-play-pause");
     const dot = document.getElementById("timer-dot");
-    if (playIcon && pauseIcon && playPauseBtn && dot) {
-        playIcon.style.display = "none";
-        pauseIcon.style.display = "block";
+    
+    // Reset Play/Pause visual states properly
+    const playTimerIcon = document.getElementById("icon-timer-play");
+    const pauseTimerIcon = document.getElementById("icon-timer-pause");
+    if (playTimerIcon && pauseTimerIcon && playPauseBtn && dot) {
+        playTimerIcon.style.display = "none";
+        pauseTimerIcon.style.display = "block";
         playPauseBtn.title = "Pause Timer";
         playPauseBtn.classList.remove("paused-btn");
         dot.classList.remove("paused-dot");
@@ -587,9 +627,8 @@ function startRoutine(routineKey, variantName) {
     STATE.timerInterval = setInterval(() => {
         if (STATE.isTimerPaused) return;
         STATE.elapsedSeconds++;
-        const mins = Math.floor(STATE.elapsedSeconds / 60).toString().padStart(2, '0');
-        const secs = (STATE.elapsedSeconds % 60).toString().padStart(2, '0');
-        document.getElementById("sequencer-timer").innerText = `${mins}:${secs}`;
+        STATE.stepSeconds++;
+        updateTimerDisplays();
     }, 1000);
     
     // Pre-populate steps list in the sidebar
@@ -599,10 +638,60 @@ function startRoutine(routineKey, variantName) {
     showView("sequencer");
 }
 
+function updateTimerDisplays() {
+    // 1. Overall Elapsed Timer
+    const mins = Math.floor(STATE.elapsedSeconds / 60).toString().padStart(2, '0');
+    const secs = (STATE.elapsedSeconds % 60).toString().padStart(2, '0');
+    document.getElementById("sequencer-timer").innerText = `${mins}:${secs}`;
+    
+    // 2. Active Step Stopwatch
+    const stepTimerEl = document.getElementById("step-timer");
+    if (stepTimerEl) {
+        const stepMins = Math.floor(STATE.stepSeconds / 60).toString().padStart(2, '0');
+        const stepSecs = (STATE.stepSeconds % 60).toString().padStart(2, '0');
+        stepTimerEl.innerText = `${stepMins}:${stepSecs}`;
+    }
+    
+    // 3. Overall Pace Delta Badge
+    const deltaEl = document.getElementById("timer-delta");
+    if (deltaEl) {
+        if (STATE.currentStepIndex === 0) {
+            deltaEl.style.display = "none";
+        } else {
+            const targetSeconds = getCumulativeEstimateSeconds(STATE.currentStepIndex);
+            const delta = STATE.elapsedSeconds - targetSeconds;
+            
+            const sign = delta > 0 ? "+" : (delta < 0 ? "-" : "");
+            const absDelta = Math.abs(delta);
+            const deltaMins = Math.floor(absDelta / 60).toString().padStart(2, '0');
+            const deltaSecs = (absDelta % 60).toString().padStart(2, '0');
+            
+            deltaEl.innerText = `${sign}${deltaMins}:${deltaSecs}`;
+            deltaEl.style.display = "inline-flex";
+            
+            if (delta > 0) {
+                deltaEl.className = "timer-delta-badge behind";
+            } else {
+                deltaEl.className = "timer-delta-badge ahead";
+            }
+        }
+    }
+}
+
 // Render Sidebar Steps List
 function renderSidebarSteps() {
     const container = document.getElementById("sidebar-steps-container");
     container.innerHTML = "";
+    
+    // Render the total duration in the sidebar header title
+    if (STATE.activeSteps && STATE.activeSteps.length > 0) {
+        const totalMin = getDurationMinutes(STATE.activeSteps);
+        const durationStr = formatDuration(totalMin);
+        const totalTimeEl = document.getElementById("sidebar-total-time");
+        if (totalTimeEl) {
+            totalTimeEl.innerText = `(${durationStr})`;
+        }
+    }
     
     STATE.activeSteps.forEach((step, idx) => {
         const item = document.createElement("li");
@@ -610,10 +699,48 @@ function renderSidebarSteps() {
         item.id = `sidebar-step-${idx}`;
         item.onclick = () => jumpToStep(idx);
         
+        let checkText = "";
+        let timeHtml = "";
+        
+        const log = STATE.stepLogs[idx];
+        if (log || idx < STATE.currentStepIndex) {
+            // It has been processed (completed or skipped)
+            const isCompleted = log ? (log.status === "completed") : (idx < STATE.currentStepIndex);
+            if (isCompleted) {
+                item.classList.add("completed");
+                checkText = "✓";
+            } else {
+                item.classList.add("skipped");
+                checkText = "x";
+            }
+            
+            const actualSeconds = STATE.stepDurations[idx] || 0;
+            const estSeconds = parseEstToSeconds(step.est);
+            const isOver = actualSeconds > estSeconds;
+            const timeClass = isOver ? "time-behind" : "time-ahead";
+            const formattedActual = formatActualDuration(actualSeconds);
+            
+            // Show difference
+            const diff = actualSeconds - estSeconds;
+            const sign = diff > 0 ? "+" : "";
+            const diffStr = diff !== 0 ? ` (${sign}${formatActualDuration(Math.abs(diff))})` : "";
+            
+            timeHtml = `<span class="step-item-time ${timeClass}">${formattedActual}${diffStr}</span>`;
+        } else {
+            // Not processed yet
+            const estShort = step.est ? step.est.replace(/\s*min/, "m") : "";
+            timeHtml = `<span class="step-item-time estimate">${estShort}</span>`;
+        }
+        
+        if (idx === STATE.currentStepIndex) {
+            item.classList.add("active");
+        }
+        
         item.innerHTML = `
             <div class="sidebar-step-dot ${step.signifier}"></div>
-            <span class="step-item-text">${step.emoji || "✨"} ${step.task}</span>
-            <span class="sidebar-step-check" id="sidebar-check-${idx}"></span>
+            <span class="step-item-text">${step.task}</span>
+            ${timeHtml}
+            <span class="sidebar-step-check ${log ? log.status : ''}">${checkText}</span>
         `;
         container.appendChild(item);
     });
@@ -622,6 +749,11 @@ function renderSidebarSteps() {
 // Jump to a specific step from sidebar click
 function jumpToStep(stepIndex) {
     if (stepIndex < 0 || stepIndex >= STATE.activeSteps.length) return;
+    
+    // Save duration of the step we are leaving immediately
+    STATE.stepDurations[STATE.currentStepIndex] = STATE.stepSeconds;
+    STATE.stepSeconds = 0;
+    updateTimerDisplays();
     
     const card = document.getElementById("active-step-card");
     
@@ -687,17 +819,11 @@ function renderActiveStep() {
         calloutBlock.style.display = "none";
     }
     
-    // Update active highlight classes in sidebar list
-    for (let i = 0; i < nSteps; i++) {
-        const item = document.getElementById(`sidebar-step-${i}`);
-        if (item) {
-            if (i === STATE.currentStepIndex) {
-                item.classList.add("active");
-                item.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-            } else {
-                item.classList.remove("active");
-            }
-        }
+    // Update active highlight classes and scroll in sidebar list
+    renderSidebarSteps();
+    const activeItem = document.getElementById(`sidebar-step-${STATE.currentStepIndex}`);
+    if (activeItem) {
+        activeItem.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }
     
     // Disable/enable Back button based on index position
@@ -707,12 +833,20 @@ function renderActiveStep() {
         prevBtn.style.opacity = (STATE.currentStepIndex === 0) ? "0.3" : "1";
     }
     
+    // Update displays instantly
+    updateTimerDisplays();
+    
     // Raise local notification
     sendLocalNotification(`Routine Action: ${step.task}`, step.notes || "");
 }
 
 // Satisfaction-focused next step transitions
 function advanceStep(isCompleted) {
+    // Save duration of the step we are leaving immediately
+    STATE.stepDurations[STATE.currentStepIndex] = STATE.stepSeconds;
+    STATE.stepSeconds = 0;
+    updateTimerDisplays();
+    
     const card = document.getElementById("active-step-card");
     
     // Add slide out animation
@@ -727,24 +861,7 @@ function advanceStep(isCompleted) {
             time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
         };
         
-        if (STATE.stepLogs[STATE.currentStepIndex]) {
-            STATE.stepLogs[STATE.currentStepIndex] = logEntry;
-        } else {
-            STATE.stepLogs.push(logEntry);
-        }
-        
-        // Update sidebar checks
-        const checkEl = document.getElementById(`sidebar-check-${STATE.currentStepIndex}`);
-        const itemEl = document.getElementById(`sidebar-step-${STATE.currentStepIndex}`);
-        if (checkEl && itemEl) {
-            if (isCompleted) {
-                checkEl.innerText = "✓";
-                itemEl.classList.add("completed");
-            } else {
-                checkEl.innerText = "x";
-                itemEl.classList.remove("completed");
-            }
-        }
+        STATE.stepLogs[STATE.currentStepIndex] = logEntry;
         
         if (isCompleted) {
             STATE.completedCount++;
@@ -776,6 +893,11 @@ function advanceStep(isCompleted) {
 // Back to previous step
 function prevStep() {
     if (STATE.currentStepIndex <= 0) return;
+    
+    // Save duration of the step we are leaving immediately
+    STATE.stepDurations[STATE.currentStepIndex] = STATE.stepSeconds;
+    STATE.stepSeconds = 0;
+    updateTimerDisplays();
     
     const card = document.getElementById("active-step-card");
     
@@ -809,13 +931,41 @@ function finishRoutine() {
     document.getElementById("completed-stat-time").innerText = `${minutesElapsed}m`;
     document.getElementById("completed-stat-steps").innerText = `${STATE.completedCount} / ${nSteps}`;
     
+    // Pace Delta calculation
+    const totalEstSeconds = getCumulativeEstimateSeconds(nSteps);
+    const finalDelta = STATE.elapsedSeconds - totalEstSeconds;
+    const finalDeltaMin = Math.round(Math.abs(finalDelta) / 60);
+    
+    const deltaValEl = document.getElementById("completed-stat-delta");
+    const deltaLabelEl = document.getElementById("completed-stat-delta-label");
+    
+    if (deltaValEl && deltaLabelEl) {
+        if (finalDeltaMin > 0 && finalDelta > 0) {
+            deltaValEl.innerText = `+${finalDeltaMin}m`;
+            deltaValEl.style.color = "#ef4444"; // Red for behind
+            deltaLabelEl.innerText = "Behind Schedule";
+        } else if (finalDeltaMin > 0 && finalDelta < 0) {
+            deltaValEl.innerText = `-${finalDeltaMin}m`;
+            deltaValEl.style.color = "#10b981"; // Green for ahead
+            deltaLabelEl.innerText = "Ahead of Schedule";
+        } else {
+            deltaValEl.innerText = "On Time";
+            deltaValEl.style.color = "var(--text-secondary)";
+            deltaLabelEl.innerText = "Schedule Delta";
+        }
+    }
+    
     // Generate Tana Paste formatted content
     const nowTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     let tanaPaste = `- Completed ${STATE.activeRoutine.title} (${STATE.activeVariant}) at ${nowTime} #project-log\n`;
     
-    STATE.stepLogs.forEach(log => {
-        const bullet = log.status === "completed" ? "✓" : "x";
-        tanaPaste += `  - ${bullet} ${log.task} (${log.time})\n`;
+    STATE.activeSteps.forEach((step, idx) => {
+        const log = STATE.stepLogs[idx];
+        const bullet = (log && log.status === "completed") ? "✓" : "x";
+        const actualSeconds = STATE.stepDurations[idx] || 0;
+        const formattedActual = formatActualDuration(actualSeconds);
+        const timeLog = log ? log.time : nowTime;
+        tanaPaste += `  - ${bullet} ${step.task} (${formattedActual} at ${timeLog})\n`;
     });
     
     document.getElementById("tana-paste-output").innerText = tanaPaste.trim();

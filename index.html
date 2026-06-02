@@ -114,7 +114,10 @@
                     <div class="active-step-card" id="active-step-card">
                         <div class="step-meta">
                             <span class="signifier-badge" id="step-signifier">🔴 Critical</span>
-                            <span class="est-time-badge" id="step-est-time">⏱️ 5 min</span>
+                            <div class="step-meta-right">
+                                <span class="est-time-badge" id="step-est-time">⏱️ 5 min</span>
+                                <span class="step-timer-badge" id="step-timer-badge">⏳ <span id="step-timer">00:00</span></span>
+                            </div>
                         </div>
                         
                         <div class="step-emoji-container">
@@ -153,6 +156,7 @@
                             <span class="timer-pulse-dot" id="timer-dot"></span>
                             <span class="timer-label">ELAPSED</span>
                             <span id="sequencer-timer" class="timer-digits">00:00</span>
+                            <span id="timer-delta" class="timer-delta-badge" style="display: none;"></span>
                         </div>
                         <div class="timer-controls">
                             <button id="btn-timer-play-pause" class="timer-control-btn" title="Pause Timer">
@@ -188,6 +192,10 @@
                     <div class="stat-card">
                         <span class="stat-val" id="completed-stat-steps">10 / 11</span>
                         <span class="stat-label">Steps Completed</span>
+                    </div>
+                    <div class="stat-card">
+                        <span class="stat-val" id="completed-stat-delta">0m</span>
+                        <span class="stat-label" id="completed-stat-delta-label">Schedule Delta</span>
                     </div>
                 </div>
 
