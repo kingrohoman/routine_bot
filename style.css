@@ -391,6 +391,26 @@ h1, h2, h3, h4, .header-logo, .step-title {
     font-weight: 500;
 }
 
+.variant-btn-details {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.variant-btn-title {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    text-align: left;
+}
+
+.variant-btn-meta {
+    font-size: 0.8rem;
+    font-weight: 500;
+    color: var(--text-secondary);
+    text-align: left;
+}
+
 /* SEQUENCER VIEW - ROW LAYOUT WITH SIDEBAR */
 #view-sequencer {
     padding: 0;

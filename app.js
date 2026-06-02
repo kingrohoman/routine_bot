@@ -16,8 +16,8 @@ const ROUTINES_DB = {
                 { task: "Bathroom & Wudu", emoji: "💧", signifier: "critical", est: "5 min", notes: "Perform wudu required for morning prayer" },
                 { task: "Pray Fajr", emoji: "🕌", signifier: "critical", est: "10 min", notes: "Establish your spiritual anchor with the Fajr prayer" },
                 { task: "Hydrate", emoji: "🥛", signifier: "critical", est: "2 min", notes: "Drink water with a pinch of salt or electrolyte powder first thing after prayer" },
-                { task: "Meditate", emoji: "🧘", signifier: "important", est: "5 min", notes: "Perform physiological sighing or a short sit for a nervous system reset" },
-                { task: "Daily Intention", emoji: "🎯", signifier: "important", est: "3 min", notes: "Open Obsidian Daily Note and write: 'What ONE thing makes today a win?' — before opening other apps" },
+                { task: "Meditate", emoji: "🧘", signifier: "important", est: "15 min", notes: "Perform physiological sighing or a short sit for a nervous system reset" },
+                { task: "Daily Intention", emoji: "🎯", signifier: "important", est: "5 min", notes: "Open Obsidian Daily Note and write: 'What ONE thing makes today a win?' — before opening other apps" },
                 { task: "Grab Gym Bag", emoji: "🎒", signifier: "critical", est: "2 min", notes: "Grab your pre-packed gym bag (packed the night before)" },
                 { task: "Gym Workout", emoji: "🏋️", signifier: "important", est: "45-60 min", notes: "45–60 min hypertrophy and longevity training. Log name, weight, and sets x reps.", callout: { type: "tip", title: "Training Log", text: "After each exercise: log details. Goal: 'Did I do more than last time?' Track it to make it training, not just exercise!" } },
                 { task: "Sunlight Exposure", emoji: "☀️", signifier: "important", est: "10 min", notes: "Get direct outdoor light during your commute. Walk or park farther away.", callout: { type: "tip", title: "Sunlight Calibration", text: "Get sunlight within 30-60 min of waking. Outdoors only — sunlight through window glass doesn't count." } },
@@ -486,6 +486,22 @@ function renderDashboard() {
     document.getElementById("current-date-badge").innerText = new Date().toLocaleDateString('en-US', options);
 }
 
+function getDurationMinutes(steps) {
+    let total = 0;
+    steps.forEach(step => {
+        const estStr = step.est || "";
+        const matches = estStr.match(/\d+/g);
+        if (matches && matches.length > 0) {
+            if (matches.length > 1) {
+                total += parseInt(matches[1], 10); // Take upper bound (e.g. 60 from "45-60")
+            } else {
+                total += parseInt(matches[0], 10);
+            }
+        }
+    });
+    return total;
+}
+
 // Step 1: Click Routine -> Show Variant selector
 function selectRoutine(routineKey) {
     const routine = ROUTINES_DB[routineKey];
@@ -505,8 +521,17 @@ function selectRoutine(routineKey) {
         btn.onclick = () => startRoutine(routineKey, varName);
         
         const logo = getVariantLogo(varName);
+        const totalMin = getDurationMinutes(steps);
+        
+        const now = new Date();
+        const finishTime = new Date(now.getTime() + totalMin * 60 * 1000);
+        const finishTimeStr = finishTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        
         btn.innerHTML = `
-            <span>${logo} ${varName}</span>
+            <div class="variant-btn-details">
+                <span class="variant-btn-title">${logo} ${varName}</span>
+                <span class="variant-btn-meta">⏱️ ${totalMin} min • Finishes at ${finishTimeStr}</span>
+            </div>
             <span class="badge-pill">${steps.length} Steps</span>
         `;
         optionsContainer.appendChild(btn);
