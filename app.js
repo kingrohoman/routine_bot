@@ -2,6 +2,17 @@
    Nexus Routine App - Core State Engine & Personal Routine Database
    ========================================================================== */
 
+// Tana Routine Node IDs mapping for Routine field references
+const TANA_ROUTINE_IDS = {
+    "wakeup": "T4O7pvV4vGRL",
+    "arrive_work": "Dv5OfRTONJw5",
+    "mid_day": "pn38H9-hDz9R",
+    "leave_work": "RVw0JkqKAOBH",
+    "arrive_home": "b6RJ6xQSOwmt",
+    "evening_review": "9Jv7G_XBwykm",
+    "pre_bed": "uPNr5mwcmwtv"
+};
+
 // 1. Personal Routine Database (Extracted 100% from Obsidian 06_Routines/)
 const ROUTINES_DB = {
     wakeup: {
@@ -933,16 +944,25 @@ function finishRoutine() {
     }
     
     // Generate Tana Paste formatted content
-    const nowTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    let tanaPaste = `- Completed ${STATE.activeRoutine.title} (${STATE.activeVariant}) at ${nowTime} #project-log\n`;
+    const now = new Date();
+    const dateStr = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
+    const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
+    const nowTime = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true });
+    const tanaRoutineNodeId = TANA_ROUTINE_IDS[STATE.activeRoutine.id] || "";
+    
+    let tanaPaste = `- ${STATE.activeRoutine.title} #[[^vU_IN3DitljW]]\n`;
+    tanaPaste += `  - [[^SYS_A90]]:: [[date:${dateStr} ${timeStr}]]\n`;
+    if (tanaRoutineNodeId) {
+        tanaPaste += `  - [[^-xABNDlB6jJG]]:: [[^${tanaRoutineNodeId}]]\n`;
+    } else {
+        tanaPaste += `  - [[^-xABNDlB6jJG]]:: [[${STATE.activeRoutine.title} #routine]]\n`;
+    }
     
     STATE.activeSteps.forEach((step, idx) => {
         const log = STATE.stepLogs[idx];
-        const bullet = (log && log.status === "completed") ? "✓" : "x";
-        const actualSeconds = STATE.stepDurations[idx] || 0;
-        const formattedActual = formatActualDuration(actualSeconds);
-        const timeLog = log ? log.time : nowTime;
-        tanaPaste += `  - ${bullet} ${step.task} (${formattedActual} at ${timeLog})\n`;
+        if (log && log.status === "completed") {
+            tanaPaste += `  - ${step.task}\n`;
+        }
     });
     
     document.getElementById("tana-paste-output").innerText = tanaPaste.trim();
@@ -1054,20 +1074,56 @@ async function pushToTanaAPI() {
         return;
     }
     
-    // Construct Tana Nodes Payload
+    // Construct Tana Nodes Payload (Image 2 style)
+    const now = new Date();
+    const dateStr = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
+    const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
+    const tanaRoutineNodeId = TANA_ROUTINE_IDS[STATE.activeRoutine.id] || "";
+
+    const children = [
+        {
+            type: "field",
+            attributeId: "SYS_A90",
+            children: [
+                {
+                    dataType: "date",
+                    name: `${dateStr} ${timeStr}:00`
+                }
+            ]
+        }
+    ];
+
+    if (tanaRoutineNodeId) {
+        children.push({
+            type: "field",
+            attributeId: "-xABNDlB6jJG",
+            children: [
+                {
+                    dataType: "reference",
+                    id: tanaRoutineNodeId
+                }
+            ]
+        });
+    }
+
+    STATE.activeSteps.forEach((step, idx) => {
+        const log = STATE.stepLogs[idx];
+        if (log && log.status === "completed") {
+            children.push({
+                name: step.task
+            });
+        }
+    });
+
     const nodes = [
         {
-            name: `Completed ${STATE.activeRoutine.title} (${STATE.activeVariant}) at ${nowTime} #project-log`,
-            children: STATE.activeSteps.map((step, idx) => {
-                const log = STATE.stepLogs[idx];
-                const bullet = (log && log.status === "completed") ? "✓" : "x";
-                const actualSeconds = STATE.stepDurations[idx] || 0;
-                const formattedActual = formatActualDuration(actualSeconds);
-                const timeLog = log ? log.time : nowTime;
-                return {
-                    name: `${bullet} ${step.task} (${formattedActual} at ${timeLog})`
-                };
-            })
+            name: STATE.activeRoutine.title,
+            supertags: [
+                {
+                    id: "vU_IN3DitljW"
+                }
+            ],
+            children: children
         }
     ];
     
