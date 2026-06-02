@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nexus Routine sequencing</title>
+    <!-- Premium Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- PWA Web App Capable -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#0f172a">
+    <!-- CSS Stylesheet -->
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <!-- App Container -->
+    <div id="app" class="app-container">
+        
+        <!-- HEADER -->
+        <header class="app-header">
+            <div class="header-content">
+                <span class="header-logo">🔄 NEXUS ROUTINES</span>
+                <div class="header-controls">
+                    <button id="btn-exit-routine" class="icon-btn" title="Exit Routine" style="display: none;">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+                    </button>
+                    <button id="btn-theme-toggle" class="icon-btn" title="Toggle Theme">
+                        <!-- Sun Icon (visible in dark mode) -->
+                        <svg id="icon-theme-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+                        <!-- Moon Icon (visible in light mode) -->
+                        <svg id="icon-theme-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display: none;"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+                    </button>
+                    <button id="btn-settings" class="icon-btn" title="Settings">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <!-- MAIN DASHBOARD -->
+        <main id="view-dashboard" class="view-panel active">
+            <div class="dashboard-hero">
+                <h1>Hello Tariq</h1>
+                <p class="hero-subtitle">Optimize your day, one decision at a time</p>
+                <div class="date-badge" id="current-date-badge">Tuesday, June 2</div>
+            </div>
+            
+            <section class="routines-section">
+                <h2 class="section-title">Select your routine</h2>
+                <div class="routine-grid" id="routine-list-grid">
+                    <!-- Loaded dynamically via app.js -->
+                </div>
+            </section>
+        </main>
+
+        <!-- VARIANT SELECTOR SCREEN -->
+        <main id="view-variant-selector" class="view-panel">
+            <button class="back-btn" id="btn-back-to-dash">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg> Back to Dashboard
+            </button>
+            
+            <div class="variant-prompt-container">
+                <div class="routine-header-block">
+                    <span class="routine-icon-large" id="selector-routine-icon">🌅</span>
+                    <h1 id="selector-routine-name">Morning Wakeup Routine</h1>
+                    <p id="selector-routine-window">Ideal: 6:00 AM – 8:30 AM</p>
+                </div>
+                
+                <div class="selection-card">
+                    <h2>How are you approaching this routine today?</h2>
+                    <p class="selection-sub">Select a variant to customize your sequence steps.</p>
+                    
+                    <div class="variant-options-list" id="variant-options-container">
+                        <!-- Loaded dynamically via app.js -->
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <!-- INTERACTIVE SEQUENCER (FULL SCREEN) -->
+        <main id="view-sequencer" class="view-panel">
+            <!-- Sidebar Step Timeline -->
+            <aside class="sequencer-sidebar" id="sequencer-sidebar">
+                <div class="sidebar-header">
+                    <h3>📋 Routine Steps</h3>
+                    <button class="sidebar-close-btn" id="btn-close-sidebar">&times;</button>
+                </div>
+                <ul class="sidebar-steps-list" id="sidebar-steps-container">
+                    <!-- Steps loaded dynamically via app.js -->
+                </ul>
+            </aside>
+
+            <!-- Sequencer Main Area -->
+            <div class="sequencer-main-content">
+                <!-- Progress Tracker -->
+                <div class="progress-bar-wrapper">
+                    <div class="progress-bar-fill" id="sequencer-progress-fill" style="width: 0%;"></div>
+                    <div class="sequencer-top-stats">
+                        <span id="sequencer-routine-info">Morning Wakeup (Standard)</span>
+                        <div class="sequencer-top-controls">
+                            <span id="sequencer-step-counter">Step 1 of 11</span>
+                            <button id="btn-toggle-sidebar" class="icon-btn" title="View Steps List">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Active Step Slide Area -->
+                <div class="step-slider-container">
+                    <div class="active-step-card" id="active-step-card">
+                        <div class="step-meta">
+                            <span class="signifier-badge" id="step-signifier">🔴 Critical</span>
+                            <span class="est-time-badge" id="step-est-time">⏱️ 5 min</span>
+                        </div>
+                        
+                        <div class="step-emoji-container">
+                            <span class="step-card-emoji" id="step-emoji">🌅</span>
+                        </div>
+                        
+                        <h1 class="step-title" id="step-task-name">Wake up ~6 AM</h1>
+                        
+                        <div class="step-notes-container" id="step-notes-block">
+                            <p class="step-notes" id="step-notes-text">Before Fajr sunrise cutoff</p>
+                        </div>
+
+                        <!-- Step Tip/Notice if available -->
+                        <div class="callout-card" id="step-callout-card" style="display: none;">
+                            <span class="callout-emoji" id="step-callout-emoji">💡</span>
+                            <div class="callout-content">
+                                <h4 id="step-callout-title">Tip</h4>
+                                <p id="step-callout-text">Light exposure within 30-60 minutes calibrates circadian clock.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Sequencer Controls Footer (satisfaction focused) -->
+                <footer class="sequencer-footer">
+                    <div class="footer-buttons">
+                        <button class="footer-btn secondary-btn" id="btn-prev-step">Back</button>
+                        <button class="footer-btn secondary-btn" id="btn-skip-step">Skip</button>
+                        <button class="footer-btn primary-btn pulse-glow" id="btn-complete-step">
+                            Done
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                        </button>
+                    </div>
+                    <div class="footer-timer-deck">
+                        <div class="timer-display-block">
+                            <span class="timer-pulse-dot" id="timer-dot"></span>
+                            <span class="timer-label">ELAPSED</span>
+                            <span id="sequencer-timer" class="timer-digits">00:00</span>
+                        </div>
+                        <div class="timer-controls">
+                            <button id="btn-timer-play-pause" class="timer-control-btn" title="Pause Timer">
+                                <!-- Pause Icon -->
+                                <svg id="icon-timer-pause" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
+                                <!-- Play Icon -->
+                                <svg id="icon-timer-play" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="display: none;"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                            </button>
+                            <button id="btn-timer-reset" class="timer-control-btn" title="Reset Timer">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
+                            </button>
+                        </div>
+                    </div>
+                </footer>
+            </div>
+        </main>
+
+        <!-- ROUTINE COMPLETE SCREEN -->
+        <main id="view-complete" class="view-panel">
+            <div class="completion-container">
+                <div class="completion-success-ring">
+                    <div class="check-animation">✓</div>
+                </div>
+                
+                <h1>Routine Complete!</h1>
+                <p class="completion-subtitle" id="completion-summary-text">You completed Morning Wakeup (Standard)</p>
+                
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <span class="stat-val" id="completed-stat-time">12m</span>
+                        <span class="stat-label">Elapsed Time</span>
+                    </div>
+                    <div class="stat-card">
+                        <span class="stat-val" id="completed-stat-steps">10 / 11</span>
+                        <span class="stat-label">Steps Completed</span>
+                    </div>
+                </div>
+
+                <!-- Integration Block -->
+                <div class="integration-card">
+                    <div class="integration-header">
+                        <h3>📥 Tana & Obsidian Integration</h3>
+                        <span class="status-indicator">Ready</span>
+                    </div>
+                    <p>Copy this outline to paste directly into your **Daily Note** in Tana or Obsidian.</p>
+                    
+                    <div class="tana-paste-box">
+                        <pre id="tana-paste-output">- Completed Morning Wakeup Routine (Standard) at 07:15
+  - Wake up ~6 AM
+  - Bathroom + Wudu</pre>
+                        <button class="copy-btn" id="btn-copy-tana">
+                            Copy to Clipboard
+                        </button>
+                    </div>
+                </div>
+
+                <div class="completion-actions">
+                    <button class="btn-full primary-btn" id="btn-completion-finish">
+                        Finish & Dashboard
+                    </button>
+                </div>
+            </div>
+        </main>
+
+        <!-- SETTINGS MODAL -->
+        <div id="modal-settings" class="modal-wrapper">
+            <div class="modal-card glassmorphism">
+                <div class="modal-header">
+                    <h2>Settings & Sync Integration</h2>
+                    <button class="close-modal-btn" id="btn-close-settings">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <form id="settings-form">
+                        <div class="form-group">
+                            <label for="setting-webhook">Android Webhook Endpoint</label>
+                            <input type="url" id="setting-webhook" placeholder="http://localhost:8080/api/routine/trigger" value="http://localhost:8080/api/routine/trigger">
+                            <p class="form-help">Sends event payloads to your local webhook receiver on Tasker events.</p>
+                        </div>
+                        <div class="form-group">
+                            <label for="setting-token">Webhook Security Token</label>
+                            <input type="password" id="setting-token" placeholder="Optional security token">
+                        </div>
+                        <div class="form-group-checkbox">
+                            <input type="checkbox" id="setting-notifications">
+                            <label for="setting-notifications">Enable Browser Push Notifications</label>
+                        </div>
+                        <div class="form-group-checkbox">
+                            <input type="checkbox" id="setting-sound" checked>
+                            <label for="setting-sound">Play Audio feedback cues</label>
+                        </div>
+                    </form>
+                    <div class="modal-actions">
+                        <button class="footer-btn secondary-btn" id="btn-clear-cache">Reset Local Data</button>
+                        <button class="footer-btn primary-btn" id="btn-save-settings">Save & Apply</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Javascript Application Logic -->
+    <script src="app.js"></script>
+</body>
+</html>
