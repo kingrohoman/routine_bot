@@ -983,6 +983,77 @@ async function pushToTanaAPI() {
     const nowTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     const targetNodeId = STATE.settings.tanaTargetNodeId || "INBOX";
     
+    if (targetNodeId.toUpperCase() === "TODAY" || targetNodeId.toUpperCase() === "DAILY_NODE") {
+        // Route through local webhook proxy
+        let webhookBaseUrl = "http://localhost:8080";
+        if (STATE.settings.webhookUrl) {
+            try {
+                webhookBaseUrl = new URL(STATE.settings.webhookUrl).origin;
+            } catch (urlErr) {
+                console.warn("[Tana Sync] Failed to parse webhookUrl, using default", urlErr);
+            }
+        }
+        const proxyUrl = `${webhookBaseUrl}/api/tana/push`;
+        
+        const headers = {
+            "Content-Type": "application/json"
+        };
+        if (STATE.settings.webhookToken) {
+            headers["Authorization"] = `Bearer ${STATE.settings.webhookToken}`;
+        }
+        
+        const tanaPasteContent = document.getElementById("tana-paste-output").innerText;
+        const proxyPayload = {
+            tanaToken: STATE.settings.tanaToken,
+            content: tanaPasteContent
+        };
+        
+        try {
+            console.log(`[Tana Sync] Routing push to today's daily note via proxy: ${proxyUrl}`);
+            const response = await fetch(proxyUrl, {
+                method: "POST",
+                headers: headers,
+                body: JSON.stringify(proxyPayload),
+                mode: "cors"
+            });
+            
+            if (response.ok) {
+                if (response.status === 202) {
+                    console.log("[Tana Sync] Direct connection failed, routine has been queued locally.");
+                    if (syncStatusEl) {
+                        syncStatusEl.innerText = "QUEUED";
+                        syncStatusEl.className = "status-indicator queued";
+                    }
+                    showToast("Tana offline. Completed routine queued for sync!");
+                } else {
+                    console.log("[Tana Sync] Successfully pushed routine to today's Daily Note via proxy.");
+                    if (syncStatusEl) {
+                        syncStatusEl.innerText = "SYNCED";
+                        syncStatusEl.className = "status-indicator ready";
+                    }
+                    showToast("Synced to Today's Daily Note!");
+                }
+            } else {
+                const errData = await response.json().catch(() => ({}));
+                const errMsg = errData.message || `Status: ${response.status}`;
+                console.warn(`[Tana Sync] Proxy push failed. ${errMsg}`);
+                if (syncStatusEl) {
+                    syncStatusEl.innerText = "FAILED";
+                    syncStatusEl.className = "status-indicator failed";
+                }
+                showToast(`Tana push failed: ${errMsg}`);
+            }
+        } catch (err) {
+            console.error("[Tana Sync] Error pushing to Tana via proxy:", err);
+            if (syncStatusEl) {
+                syncStatusEl.innerText = "FAILED";
+                syncStatusEl.className = "status-indicator failed";
+            }
+            showToast("Tana API Sync failed (Proxy connection error)");
+        }
+        return;
+    }
+    
     // Construct Tana Nodes Payload
     const nodes = [
         {

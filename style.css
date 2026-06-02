@@ -1182,6 +1182,12 @@ h1, h2, h3, h4, .header-logo, .step-title {
     border: 1px solid rgba(255, 255, 255, 0.05);
 }
 
+.status-indicator.queued {
+    color: #f59e0b;
+    background-color: rgba(245, 158, 11, 0.1);
+    border: 1px solid rgba(245, 158, 11, 0.2);
+}
+
 .integration-card p {
     font-size: 0.8rem;
     line-height: 1.5;
