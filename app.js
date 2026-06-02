@@ -31,6 +31,7 @@ const ROUTINES_DB = {
                 { task: "Hydrate", emoji: "🥛", signifier: "critical", est: "2 min", notes: "Drink fresh water to replenish fluids" },
                 { task: "Mental Intention", emoji: "🧠", signifier: "important", est: "1 min", notes: "Mentally answer your ONE thing intention for the day — no writing required" },
                 { task: "Morning Walk", emoji: "🚶", signifier: "important", est: "10 min", notes: "Skip the gym today. Take a quick 10-minute walk outside for light movement and outdoor light.", callout: { type: "warning", title: "Gym Skip Rule", text: "Do not reschedule gym to later the same day. Replace with a walk, reschedule gym to next available slot." } },
+                { task: "Deep Rest Protocol", emoji: "💤", signifier: "important", est: "10 min", notes: "Run a 10-minute Non-Sleep Deep Rest (NSDR) session to restore cognitive function.", callout: { type: "tip", title: "NSDR Focus", text: "10 min of NSDR can recover cognitive function after a severely broken night of sleep." } },
                 { task: "Hygiene", emoji: "🧴", signifier: "critical", est: "8 min", notes: "Compressed home hygiene: Brush, Sunscreen (non-negotiable), and change clothes" }
             ],
             "Weekend": [
