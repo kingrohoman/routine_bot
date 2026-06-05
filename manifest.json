@@ -1,0 +1,10 @@
+{
+  "name": "Nexus Routine Sequencing",
+  "short_name": "Routines",
+  "description": "Optimize your day, one decision at a time.",
+  "start_url": "index.html",
+  "display": "standalone",
+  "background_color": "#0f172a",
+  "theme_color": "#0f172a",
+  "orientation": "portrait"
+}
