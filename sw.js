@@ -1,4 +1,4 @@
-const CACHE_NAME = 'routine-bot-v2';
+const CACHE_NAME = 'routine-bot-v3';
 const ASSETS = [
   './',
   './index.html',
