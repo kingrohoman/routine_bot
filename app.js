@@ -288,6 +288,14 @@ const STATE = {
         soundEnabled: true,
         notificationsEnabled: false,
         theme: "dark"
+    },
+    
+    // Context for routine adaptation (specifically wakeup)
+    routineContext: {
+        dayOfWeek: "",
+        wakeUpTime: "",
+        workoutToday: true,
+        eveningRoutineCompleted: true
     }
 };
 
@@ -550,6 +558,147 @@ function formatActualDuration(seconds) {
     return `${secs}s`;
 }
 
+// Check if evening routine was completed yesterday/last night (within last 18 hours)
+function checkEveningRoutineCompletedLastNight() {
+    try {
+        const history = JSON.parse(localStorage.getItem("routine_history") || "[]");
+        if (history.length === 0) return true; // Default to true if no history
+        
+        // Find the last completed "evening_review" routine
+        const eveningLogs = history
+            .filter(log => log.routineId === "evening_review")
+            .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+            
+        if (eveningLogs.length === 0) return false;
+        
+        const lastTime = new Date(eveningLogs[0].timestamp);
+        const now = new Date();
+        const diffHrs = (now - lastTime) / (1000 * 60 * 60);
+        
+        return diffHrs <= 18;
+    } catch (e) {
+        console.error("Error checking evening routine history:", e);
+        return true;
+    }
+}
+
+// Initialize the routine context with auto-detected values
+function initRoutineContext() {
+    const now = new Date();
+    const dayName = now.toLocaleDateString('en-US', { weekday: 'long' });
+    const isWeekend = (dayName === "Saturday" || dayName === "Sunday");
+    
+    // Default wake up time as HH:MM in local time
+    const hrs = String(now.getHours()).padStart(2, '0');
+    const mins = String(now.getMinutes()).padStart(2, '0');
+    const timeStr = `${hrs}:${mins}`;
+    
+    STATE.routineContext = {
+        dayOfWeek: dayName,
+        wakeUpTime: timeStr,
+        workoutToday: !isWeekend, // Default to true on weekdays, false on weekends
+        eveningRoutineCompleted: checkEveningRoutineCompletedLastNight()
+    };
+}
+
+// Evaluate the recommendation engine rules
+function getRecommendedVariant() {
+    const day = STATE.routineContext.dayOfWeek;
+    const wakeTime = STATE.routineContext.wakeUpTime;
+    const eveningDone = STATE.routineContext.eveningRoutineCompleted;
+    
+    // Rule 1: Weekend
+    if (day === "Saturday" || day === "Sunday") {
+        return {
+            variant: "Weekend",
+            reason: `Based on ${day} (Weekend) context.`
+        };
+    }
+    
+    // Parse wake up time
+    let isLateWakeup = false;
+    if (wakeTime) {
+        const parts = wakeTime.split(':');
+        if (parts.length === 2) {
+            const hrs = parseInt(parts[0], 10);
+            const mins = parseInt(parts[1], 10);
+            if (hrs > 7 || (hrs === 7 && mins > 30)) {
+                isLateWakeup = true;
+            }
+        }
+    }
+    
+    // Rule 2: Low Energy / Sleep Recovery
+    if (!eveningDone || isLateWakeup) {
+        let reason = "";
+        if (!eveningDone && isLateWakeup) {
+            reason = "Based on late wakeup after 7:30 AM and incomplete sleep hygiene last night.";
+        } else if (!eveningDone) {
+            reason = "Based on incomplete sleep hygiene last night.";
+        } else {
+            reason = "Based on late wakeup after 7:30 AM.";
+        }
+        return {
+            variant: "Low Energy",
+            reason: reason
+        };
+    }
+    
+    // Rule 3: Standard
+    return {
+        variant: "Standard",
+        reason: `Based on ${day} context and active workout intention.`
+    };
+}
+
+// Update the recommendation box and duration estimation
+function updateWakeupRecommendationUI() {
+    const rec = getRecommendedVariant();
+    
+    const recNameEl = document.getElementById("rec-variant-name");
+    const recReasonEl = document.getElementById("rec-reasoning");
+    const recDurationEl = document.getElementById("rec-duration");
+    const startBtn = document.getElementById("btn-start-recommended");
+    
+    if (recNameEl) recNameEl.innerText = `${rec.variant} Variant`;
+    if (recReasonEl) recReasonEl.innerText = rec.reason;
+    
+    // Calculate recommended duration based on the active steps
+    let steps = [...ROUTINES_DB.wakeup.variants[rec.variant]];
+    if (rec.variant === "Standard" && !STATE.routineContext.workoutToday) {
+        // Apply steps filtering
+        steps = steps.filter(s => s.task !== "Grab Gym Bag" && s.task !== "Gym Workout" && s.task !== "Gym Hygiene");
+        // Insert walk and hygiene
+        const dailyIntentionIdx = steps.findIndex(s => s.task === "Daily Intention");
+        const insertIdx = dailyIntentionIdx !== -1 ? dailyIntentionIdx + 1 : 6;
+        steps.splice(insertIdx, 0, 
+            { task: "Morning Walk", emoji: "🚶", est: "10 min" },
+            { task: "Hygiene", emoji: "🧴", est: "8 min" }
+        );
+    }
+    
+    const totalMin = getDurationMinutes(steps);
+    if (recDurationEl) recDurationEl.innerText = formatDuration(totalMin);
+    
+    // Store recommended variant in a data attribute on start button
+    if (startBtn) {
+        startBtn.dataset.recommendedVariant = rec.variant;
+    }
+}
+
+// Helper to set visual state of toggle buttons
+function setToggleState(groupId, value) {
+    const btns = document.querySelectorAll(`#${groupId} .toggle-btn`);
+    btns.forEach(btn => {
+        const val = btn.dataset.val === "true";
+        if (val === value) {
+            btn.classList.add("active");
+        } else {
+            btn.classList.remove("active");
+        }
+    });
+}
+
 // Step 1: Click Routine -> Show Variant selector
 function selectRoutine(routineKey) {
     const routine = ROUTINES_DB[routineKey];
@@ -559,32 +708,205 @@ function selectRoutine(routineKey) {
     document.getElementById("selector-routine-name").innerText = routine.title;
     document.getElementById("selector-routine-window").innerText = `Ideal window: ${routine.window} | Area: ${routine.area}`;
     
-    const optionsContainer = document.getElementById("variant-options-container");
-    optionsContainer.innerHTML = "";
+    const selectionCard = document.querySelector(".selection-card");
     
-    Object.keys(routine.variants).forEach(varName => {
-        const steps = routine.variants[varName];
-        const btn = document.createElement("button");
-        btn.className = "variant-option-btn";
-        btn.onclick = () => startRoutine(routineKey, varName);
+    if (routineKey === "wakeup") {
+        initRoutineContext();
         
-        const logo = getVariantLogo(varName);
-        const totalMin = getDurationMinutes(steps);
-        const durationStr = formatDuration(totalMin);
-        
-        const now = new Date();
-        const finishTime = new Date(now.getTime() + totalMin * 60 * 1000);
-        const finishTimeStr = finishTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-        
-        btn.innerHTML = `
-            <div class="variant-btn-details">
-                <span class="variant-btn-title">${logo} ${varName}</span>
-                <span class="variant-btn-meta">⏱️ ${durationStr} • Finishes at ${finishTimeStr}</span>
+        // Render custom context selection card
+        selectionCard.innerHTML = `
+            <h2>How are you approaching this routine today?</h2>
+            <p class="selection-sub">Select your context to dynamically calibrate your sequence steps.</p>
+            
+            <div class="context-card-container">
+                <div class="context-grid">
+                    <!-- Day of Week selector -->
+                    <div class="context-item">
+                        <span class="context-icon">📅</span>
+                        <div class="context-field-wrapper">
+                            <label for="input-day-of-week">Day of Week</label>
+                            <select id="input-day-of-week" class="context-select">
+                                <option value="Monday">Monday</option>
+                                <option value="Tuesday">Tuesday</option>
+                                <option value="Wednesday">Wednesday</option>
+                                <option value="Thursday">Thursday</option>
+                                <option value="Friday">Friday</option>
+                                <option value="Saturday">Saturday</option>
+                                <option value="Sunday">Sunday</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Wake Up Time input -->
+                    <div class="context-item">
+                        <span class="context-icon">⏰</span>
+                        <div class="context-field-wrapper">
+                            <label for="input-wakeup-time">Woke up at</label>
+                            <input type="time" id="input-wakeup-time" class="context-input-time">
+                        </div>
+                    </div>
+
+                    <!-- Workout Today Toggle -->
+                    <div class="context-item wide-item">
+                        <span class="context-icon">💪</span>
+                        <div class="context-field-wrapper">
+                            <label>Workout Today?</label>
+                            <div class="toggle-group" id="toggle-workout">
+                                <button type="button" class="toggle-btn" data-val="true">Yes</button>
+                                <button type="button" class="toggle-btn" data-val="false">No</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Evening Routine Completed Toggle -->
+                    <div class="context-item wide-item">
+                        <span class="context-icon">🌙</span>
+                        <div class="context-field-wrapper">
+                            <label>Evening Routine Completed Last Night?</label>
+                            <div class="toggle-group" id="toggle-evening">
+                                <button type="button" class="toggle-btn" data-val="true">Yes</button>
+                                <button type="button" class="toggle-btn" data-val="false">No</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="recommendation-box">
+                    <div class="recommendation-header">
+                        <span class="recommendation-bulb">💡</span>
+                        <h3>Recommendation: <span id="rec-variant-name" class="rec-highlight">Standard Variant</span></h3>
+                    </div>
+                    <p id="rec-reasoning" class="recommendation-reasoning">
+                        Based on weekday context and active workout intention.
+                    </p>
+                </div>
+
+                <button id="btn-start-recommended" class="btn-full primary-btn pulse-glow" style="margin-top: 10px; width: 100%; font-family: inherit; font-size: 1rem; font-weight: 700; height: 50px; border: none; border-radius: 14px; cursor: pointer; display: flex; align-items: center; justify-content: center; color: white; background: var(--gradient-primary); box-shadow: 0 4px 15px rgba(99, 102, 241, 0.4);">
+                    Start Suggested Routine (<span id="rec-duration">18m</span>)
+                </button>
+
+                <div class="manual-override-section">
+                    <span class="manual-override-label">Or pick manually:</span>
+                    <div class="manual-btn-group">
+                        <button class="manual-override-btn" data-variant="Standard">Standard</button>
+                        <button class="manual-override-btn" data-variant="Low Energy">Low Energy</button>
+                        <button class="manual-override-btn" data-variant="Weekend">Weekend</button>
+                    </div>
+                </div>
             </div>
-            <span class="badge-pill">${steps.length} Steps</span>
         `;
-        optionsContainer.appendChild(btn);
-    });
+        
+        // Set values from STATE.routineContext
+        const selectDay = document.getElementById("input-day-of-week");
+        const inputTime = document.getElementById("input-wakeup-time");
+        
+        if (selectDay) selectDay.value = STATE.routineContext.dayOfWeek;
+        if (inputTime) inputTime.value = STATE.routineContext.wakeUpTime;
+        
+        // Set toggles active classes
+        setToggleState("toggle-workout", STATE.routineContext.workoutToday);
+        setToggleState("toggle-evening", STATE.routineContext.eveningRoutineCompleted);
+        
+        // Bind change events
+        if (selectDay) {
+            selectDay.onchange = (e) => {
+                STATE.routineContext.dayOfWeek = e.target.value;
+                // Automatically toggle workout today if switching to weekend / weekday
+                const isWeekend = (e.target.value === "Saturday" || e.target.value === "Sunday");
+                STATE.routineContext.workoutToday = !isWeekend;
+                setToggleState("toggle-workout", STATE.routineContext.workoutToday);
+                updateWakeupRecommendationUI();
+            };
+        }
+        
+        if (inputTime) {
+            inputTime.onchange = (e) => {
+                STATE.routineContext.wakeUpTime = e.target.value;
+                updateWakeupRecommendationUI();
+            };
+        }
+        
+        // Toggle Workout bindings
+        const workoutToggles = document.querySelectorAll("#toggle-workout .toggle-btn");
+        workoutToggles.forEach(btn => {
+            btn.onclick = () => {
+                const val = btn.dataset.val === "true";
+                STATE.routineContext.workoutToday = val;
+                setToggleState("toggle-workout", val);
+                updateWakeupRecommendationUI();
+            };
+        });
+        
+        // Toggle Evening bindings
+        const eveningToggles = document.querySelectorAll("#toggle-evening .toggle-btn");
+        eveningToggles.forEach(btn => {
+            btn.onclick = () => {
+                const val = btn.dataset.val === "true";
+                STATE.routineContext.eveningRoutineCompleted = val;
+                setToggleState("toggle-evening", val);
+                updateWakeupRecommendationUI();
+            };
+        });
+        
+        // Start recommended button binding
+        const startBtn = document.getElementById("btn-start-recommended");
+        if (startBtn) {
+            startBtn.onclick = () => {
+                const recommended = startBtn.dataset.recommendedVariant || "Standard";
+                startRoutine("wakeup", recommended);
+            };
+        }
+        
+        // Manual overrides buttons binding
+        const manualBtns = document.querySelectorAll(".manual-override-btn");
+        manualBtns.forEach(btn => {
+            btn.onclick = () => {
+                const varName = btn.dataset.variant;
+                startRoutine("wakeup", varName);
+            };
+        });
+        
+        // Initial draw of recommendation
+        updateWakeupRecommendationUI();
+        
+    } else {
+        // Original selection card layout restoration
+        selectionCard.innerHTML = `
+            <h2>How are you approaching this routine today?</h2>
+            <p class="selection-sub">Select a variant to customize your sequence steps.</p>
+            
+            <div class="variant-options-list" id="variant-options-container">
+                <!-- Loaded dynamically via app.js -->
+            </div>
+        `;
+        
+        const optionsContainer = document.getElementById("variant-options-container");
+        optionsContainer.innerHTML = "";
+        
+        Object.keys(routine.variants).forEach(varName => {
+            const steps = routine.variants[varName];
+            const btn = document.createElement("button");
+            btn.className = "variant-option-btn";
+            btn.onclick = () => startRoutine(routineKey, varName);
+            
+            const logo = getVariantLogo(varName);
+            const totalMin = getDurationMinutes(steps);
+            const durationStr = formatDuration(totalMin);
+            
+            const now = new Date();
+            const finishTime = new Date(now.getTime() + totalMin * 60 * 1000);
+            const finishTimeStr = finishTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            
+            btn.innerHTML = `
+                <div class="variant-btn-details">
+                    <span class="variant-btn-title">${logo} ${varName}</span>
+                    <span class="variant-btn-meta">⏱️ ${durationStr} • Finishes at ${finishTimeStr}</span>
+                </div>
+                <span class="badge-pill">${steps.length} Steps</span>
+            `;
+            optionsContainer.appendChild(btn);
+        });
+    }
     
     showView("variant-selector");
 }
@@ -599,7 +921,69 @@ function startRoutine(routineKey, variantName) {
     
     STATE.activeRoutine = routine;
     STATE.activeVariant = variantName;
-    STATE.activeSteps = [...routine.variants[variantName]];
+    
+    let steps = [...routine.variants[variantName]];
+    
+    // Context-driven modifications for Morning Wakeup Routine
+    if (routineKey === "wakeup") {
+        // 1. Workout Today check
+        if (variantName === "Standard" && STATE.routineContext && !STATE.routineContext.workoutToday) {
+            // Filter out Grab Gym Bag, Gym Workout, and Gym Hygiene
+            steps = steps.filter(s => s.task !== "Grab Gym Bag" && s.task !== "Gym Workout" && s.task !== "Gym Hygiene");
+            
+            // Find index of Daily Intention to insert right after
+            const dailyIntentionIdx = steps.findIndex(s => s.task === "Daily Intention");
+            const insertIdx = dailyIntentionIdx !== -1 ? dailyIntentionIdx + 1 : 6;
+            
+            // Insert Morning Walk and home Hygiene
+            steps.splice(insertIdx, 0, 
+                { 
+                    task: "Morning Walk", 
+                    emoji: "🚶", 
+                    signifier: "important", 
+                    est: "10 min", 
+                    notes: "Skip the gym today. Take a quick 10-minute walk outside for light movement and outdoor light.",
+                    callout: { 
+                        type: "warning", 
+                        title: "Gym Skip Rule", 
+                        text: "Do not reschedule gym to later the same day. Replace with a walk, reschedule gym to next available slot." 
+                    } 
+                },
+                { 
+                    task: "Hygiene", 
+                    emoji: "🧴", 
+                    signifier: "critical", 
+                    est: "8 min", 
+                    notes: "Compressed home hygiene: Brush, Sunscreen (non-negotiable), and change clothes" 
+                }
+            );
+        }
+        
+        // 2. Fajr Sunrise Cutoff check
+        if (STATE.routineContext && STATE.routineContext.wakeUpTime) {
+            const parts = STATE.routineContext.wakeUpTime.split(':');
+            if (parts.length === 2) {
+                const hrs = parseInt(parts[0], 10);
+                const mins = parseInt(parts[1], 10);
+                if (hrs >= 6) {
+                    // Sunrise passed, rename and update notes
+                    steps = steps.map(s => {
+                        if (s.task === "Pray Fajr") {
+                            return {
+                                ...s,
+                                task: "🕌 Pray Fajr (Make-up/Qada)",
+                                notes: "Sunrise has passed (~6:00 AM). Establish Fajr prayer as Make-up (Qada) immediately.",
+                                signifier: "critical"
+                            };
+                        }
+                        return s;
+                    });
+                }
+            }
+        }
+    }
+    
+    STATE.activeSteps = steps;
     STATE.currentStepIndex = 0;
     STATE.completedCount = 0;
     STATE.skippedCount = 0;
@@ -614,7 +998,15 @@ function startRoutine(routineKey, variantName) {
     document.getElementById("sequencer-routine-info").innerText = `${logo} ${routine.title} (${variantName})`;
     
     // Webhook Trigger
-    fireWebhook("routine_start", { routine: routine.title, variant: variantName });
+    const webhookData = { routine: routine.title, variant: variantName };
+    if (routineKey === "wakeup" && STATE.routineContext) {
+        webhookData.context = {
+            wake_up_time: STATE.routineContext.wakeUpTime,
+            workout_today: STATE.routineContext.workoutToday,
+            evening_routine_completed_last_night: STATE.routineContext.eveningRoutineCompleted
+        };
+    }
+    fireWebhook("routine_start", webhookData);
     
     // Timer setup
     clearInterval(STATE.timerInterval);
@@ -958,6 +1350,13 @@ function finishRoutine() {
         tanaPaste += `  - [[^-xABNDlB6jJG]]:: [[${STATE.activeRoutine.title} #routine]]\n`;
     }
     
+    if (STATE.activeRoutine.id === "wakeup" && STATE.routineContext) {
+        tanaPaste += `  - Wake Up Time:: ${STATE.routineContext.wakeUpTime}\n`;
+        tanaPaste += `  - Workout Today:: ${STATE.routineContext.workoutToday ? "Yes" : "No"}\n`;
+        tanaPaste += `  - Evening Routine Completed:: ${STATE.routineContext.eveningRoutineCompleted ? "Yes" : "No"}\n`;
+        tanaPaste += `  - Recommended Variant:: ${STATE.activeVariant}\n`;
+    }
+    
     STATE.activeSteps.forEach((step, idx) => {
         const log = STATE.stepLogs[idx];
         if (log && log.status === "completed") {
@@ -971,13 +1370,21 @@ function finishRoutine() {
     saveCompletionLog(STATE.activeRoutine.id, STATE.activeVariant, STATE.completedCount, nSteps, tanaPaste);
     
     // Webhook Trigger
-    fireWebhook("routine_complete", {
+    const webhookCompleteData = {
         routine: STATE.activeRoutine.title,
         variant: STATE.activeVariant,
         duration_minutes: minutesElapsed,
         completed_steps: STATE.completedCount,
         total_steps: nSteps
-    });
+    };
+    if (STATE.activeRoutine.id === "wakeup" && STATE.routineContext) {
+        webhookCompleteData.context = {
+            wake_up_time: STATE.routineContext.wakeUpTime,
+            workout_today: STATE.routineContext.workoutToday,
+            evening_routine_completed_last_night: STATE.routineContext.eveningRoutineCompleted
+        };
+    }
+    fireWebhook("routine_complete", webhookCompleteData);
     
     // Tana Sync Trigger
     if (STATE.settings.tanaToken) {
@@ -1421,3 +1828,87 @@ document.addEventListener("DOMContentLoaded", () => {
     // Initialize Dashboard
     renderDashboard();
 });
+
+// Verification Test Suite for Context-Driven Routine Recommendation
+window.runAdaptationTests = function() {
+    console.log("=== RUNNING CONTEXT ADAPTATION TESTS ===");
+    
+    // Helper to log test outcomes
+    let passCount = 0;
+    let failCount = 0;
+    
+    function assertEqual(actual, expected, message) {
+        if (actual === expected) {
+            console.log(`%c[PASS] ${message}`, "color: #10b981; font-weight: bold;");
+            passCount++;
+        } else {
+            console.error(`[FAIL] ${message} - Expected: "${expected}", Actual: "${actual}"`);
+            failCount++;
+        }
+    }
+
+    // Save current context to restore later
+    const originalContext = { ...STATE.routineContext };
+    
+    try {
+        // Test Case 1: Weekend override (Saturday)
+        STATE.routineContext = {
+            dayOfWeek: "Saturday",
+            wakeUpTime: "06:30",
+            workoutToday: false,
+            eveningRoutineCompleted: true
+        };
+        assertEqual(getRecommendedVariant().variant, "Weekend", "Saturday recommends Weekend variant");
+        
+        // Test Case 2: Weekend override (Sunday)
+        STATE.routineContext = {
+            dayOfWeek: "Sunday",
+            wakeUpTime: "08:30",
+            workoutToday: false,
+            eveningRoutineCompleted: false
+        };
+        assertEqual(getRecommendedVariant().variant, "Weekend", "Sunday recommends Weekend variant despite late wake and incomplete evening");
+
+        // Test Case 3: Weekday standard morning
+        STATE.routineContext = {
+            dayOfWeek: "Tuesday",
+            wakeUpTime: "06:30",
+            workoutToday: true,
+            eveningRoutineCompleted: true
+        };
+        assertEqual(getRecommendedVariant().variant, "Standard", "Tuesday standard wake recommends Standard variant");
+
+        // Test Case 4: Weekday late wakeup (>7:30 AM)
+        STATE.routineContext = {
+            dayOfWeek: "Wednesday",
+            wakeUpTime: "07:45",
+            workoutToday: true,
+            eveningRoutineCompleted: true
+        };
+        assertEqual(getRecommendedVariant().variant, "Low Energy", "Wednesday late wake (07:45) recommends Low Energy variant");
+
+        // Test Case 5: Weekday incomplete evening routine
+        STATE.routineContext = {
+            dayOfWeek: "Thursday",
+            wakeUpTime: "06:15",
+            workoutToday: true,
+            eveningRoutineCompleted: false
+        };
+        assertEqual(getRecommendedVariant().variant, "Low Energy", "Thursday incomplete evening routine recommends Low Energy variant");
+
+        // Test Case 6: Weekday exact Fajr Sunrise Cutoff boundary (06:00 AM)
+        STATE.routineContext = {
+            dayOfWeek: "Friday",
+            wakeUpTime: "06:00",
+            workoutToday: true,
+            eveningRoutineCompleted: true
+        };
+        assertEqual(getRecommendedVariant().variant, "Standard", "Friday exactly 06:00 AM recommends Standard variant");
+
+        console.log(`=== TEST SUMMARY: ${passCount} PASSED, ${failCount} FAILED ===`);
+    } finally {
+        // Restore context
+        STATE.routineContext = originalContext;
+    }
+};
+
