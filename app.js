@@ -224,40 +224,10 @@ const ROUTINES_DB = {
         window: "9:30 PM – 10:30 PM",
         area: "Wellbeing",
         variants: {
-            "Standard": [
-                { task: "Warm Shower", emoji: "🚿", signifier: "critical", est: "15 min", notes: "Take a warm shower for thermal cooling (sleep signal) and spiritual cleanliness" },
-                { task: "Pray Isha", emoji: "🕌", signifier: "critical", est: "10 min", notes: "Establish Isha prayer — spiritual close (non-negotiable)" },
-                { task: "Quick Declutter", emoji: "🧹", signifier: "important", est: "10 min", notes: "Set a 10-minute timer to declutter high-visibility areas and kitchen counters.", callout: { type: "tip", title: "Quick Declutter", text: "Set a timer, stop when it goes off. High-visibility areas only: kitchen counter, living room, bedroom floor, bag staged by the door." } },
-                { task: "Vitamins & Supplements", emoji: "💊", signifier: "critical", est: "2 min", notes: "Take your evening vitamins and fish oil supplements" },
-                { task: "Oral Hygiene", emoji: "🪥", signifier: "critical", est: "5 min", notes: "Perform complete oral hygiene (Brush, Floss, Salt Gargle)" },
-                { task: "Evening Skincare", emoji: "🧴", signifier: "important", est: "5 min", notes: "Cleanse, moisturize, and apply active skincare" },
-                { task: "Stage Commute Gear", emoji: "🎒", signifier: "critical", est: "10 min", notes: "Pack your work bag, stage lunch, and fill water bottle to enable tomorrow's morning.", callout: { type: "warning", title: "Staging Bag", text: "Skipping bag packing means 5–10 extra minutes lost in the morning rush." } },
-                { task: "Charge Devices", emoji: "🔌", signifier: "critical", est: "2 min", notes: "Plug in phone and watch (charge phone away from bed if possible)" },
-                { task: "Gentle Stretching", emoji: "🧘", signifier: "important", est: "8 min", notes: "Perform gentle Yin yoga stretching for neck and shoulder release" },
-                { task: "Yoga Nidra Sleep", emoji: "💤", signifier: "important", est: "15 min", notes: "Run a Yoga Nidra or NSDR session to trigger deeply restorative sleep" }
-            ],
-            "Late Night / Exhausted": [
-                { task: "Quick Shower", emoji: "🚿", signifier: "important", est: "5 min", notes: "Take a quick 5-minute warm shower (skip if Faraz Gosul is not due)" },
-                { task: "Pray Isha", emoji: "🕌", signifier: "critical", est: "10 min", notes: "Establish Isha prayer — spiritual close" },
-                { task: "Vitamins & Supplements", emoji: "💊", signifier: "critical", est: "2 min", notes: "Take your evening vitamins and fish oil supplements" },
-                { task: "Essential Oral Care", emoji: "🪥", signifier: "critical", est: "4 min", notes: "Brush and floss teeth" },
-                { task: "Set Tomorrow Clothes", emoji: "👕", signifier: "important", est: "2 min", notes: "Set out tomorrow's clothes at minimum (2-minute prep)" },
-                { task: "Charge Phone", emoji: "🔌", signifier: "critical", est: "1 min", notes: "Plug in phone and head to sleep" }
-            ],
-            "Workday Next Morning": [
-                { task: "Standard Pre Bed Steps", emoji: "🌙", signifier: "critical", est: "40 min", notes: "Run your full Standard Pre-Bed routine" },
-                { task: "Confirm Gear Setup", emoji: "🎒", signifier: "critical", est: "5 min", notes: "Confirm bag details match tomorrow's specific meetings and gym schedule" },
-                { task: "Set Wake Alarm", emoji: "⏰", signifier: "critical", est: "1 min", notes: "Confirm and set wake-up alarm before launching sleep protocol" }
-            ],
-            "HBP (High Blood Pressure)": [
-                { task: "Standard Pre Bed Steps", emoji: "🌙", signifier: "critical", est: "40 min", notes: "Run your full Standard Pre-Bed routine" },
-                { task: "Blood Pressure Meds", emoji: "💊", signifier: "critical", est: "2 min", notes: "Take your evening dose of blood pressure medication" },
-                { task: "Log Blood Pressure", emoji: "🩺", signifier: "important", est: "2 min", notes: "Log your evening blood pressure reading in Obsidian Daily Note" }
-            ],
-            "Short on Time or Energy": [
-                { task: "Minimal Pre Bed Steps", emoji: "🌙", signifier: "critical", est: "15 min", notes: "Execute minimal non-negotiable Pre-Bed steps" },
-                { task: "Verify Critical Items", emoji: "✔️", signifier: "critical", est: "5 min", notes: "Double check that Isha, Vitamins, Brushing, and Phone Charging are done" }
-            ]
+            "Full": [],
+            "Moderate": [],
+            "Compressed": [],
+            "Emergency": []
         }
     }
 };
@@ -481,13 +451,43 @@ function renderDashboard() {
         card.className = "routine-card";
         card.onclick = () => selectRoutine(key);
         
+        let windowStr = routine.window;
+        if (key === "pre_bed" && STATE.sleepTargets) {
+            initPreBedContext();
+            const steps = assemblePreBedSteps("Full", STATE.routineContext);
+            const durationMin = getDurationMinutes(steps);
+            
+            const [bedHrs, bedMins] = STATE.sleepTargets.targetBedtime.split(':').map(Number);
+            
+            // End time = Target Bedtime - 15 minutes
+            let endHrs = bedHrs;
+            let endMins = bedMins - 15;
+            if (endMins < 0) {
+                endMins += 60;
+                endHrs = (endHrs - 1 + 24) % 24;
+            }
+            
+            // Start time = End time - durationMin
+            let startHrs = endHrs;
+            let startMins = endMins - durationMin;
+            while (startMins < 0) {
+                startMins += 60;
+                startHrs = (startHrs - 1 + 24) % 24;
+            }
+            
+            const pad = (n) => String(n).padStart(2, '0');
+            const startStr = `${pad(startHrs)}:${pad(startMins)}`;
+            const endStr = `${pad(endHrs)}:${pad(endMins)}`;
+            
+            windowStr = `${PrayerService.formatTo12Hour(startStr)} – ${PrayerService.formatTo12Hour(endStr)}`;
+        }
+        
         card.innerHTML = `
             <div class="routine-icon">${routine.icon}</div>
             <div class="routine-details">
                 <h3>${routine.title}</h3>
                 <div class="routine-meta-row">
-                    <span>⏱️ ${routine.window}</span>
-                    <span>🏷️ ${routine.area}</span>
+                    <span>⏱️ ${windowStr}</span>
                 </div>
             </div>
             <div class="arrow-indicator">➔</div>
@@ -699,6 +699,353 @@ function setToggleState(groupId, value) {
     });
 }
 
+// Helper to set visual state of energy buttons
+function setEnergyState(groupId, value) {
+    const btns = document.querySelectorAll(`#${groupId} .energy-btn`);
+    btns.forEach(btn => {
+        if (btn.dataset.val === value) {
+            btn.classList.add("active");
+        } else {
+            btn.classList.remove("active");
+        }
+    });
+}
+
+// Initialize the pre-bed context with auto-detected values
+function initPreBedContext() {
+    const now = new Date();
+    
+    // Sleep day adjustment: if before 5 AM, contextually it is the previous day
+    const contextualDate = new Date(now);
+    if (now.getHours() < 5) {
+        contextualDate.setDate(contextualDate.getDate() - 1);
+    }
+    
+    const dayName = contextualDate.toLocaleDateString('en-US', { weekday: 'long' });
+    
+    // Friday/Saturday evenings: no work the next day.
+    // Sunday-Thursday evenings: work the next day.
+    const isWeekendTomorrow = (dayName === "Friday" || dayName === "Saturday");
+    const workdayTomorrow = !isWeekendTomorrow;
+    
+    const hrs = String(now.getHours()).padStart(2, '0');
+    const mins = String(now.getMinutes()).padStart(2, '0');
+    const timeStr = `${hrs}:${mins}`;
+    
+    STATE.routineContext = {
+        dayOfWeek: dayName,
+        currentTime: timeStr,
+        workdayTomorrow: workdayTomorrow,
+        energyLevel: "Normal"
+    };
+}
+
+// Calculate the pre-bed recommendation tier and details based on current time and targets
+function getPreBedRecommendation(refDate) {
+    let bedtimeStr = "22:00"; // Default fallback to 10 PM
+    if (STATE.sleepTargets && STATE.sleepTargets.targetBedtime) {
+        bedtimeStr = STATE.sleepTargets.targetBedtime;
+    }
+    
+    const now = refDate || new Date();
+    const [bedHrs, bedMins] = bedtimeStr.split(':').map(Number);
+    
+    // Construct target bedtime Date object
+    const targetBedtimeDate = new Date(now);
+    targetBedtimeDate.setHours(bedHrs, bedMins, 0, 0);
+    
+    // Adjust target date if bedtime spans midnight
+    let diffMs = targetBedtimeDate - now;
+    if (bedHrs < 6 && now.getHours() >= 18) {
+        targetBedtimeDate.setDate(targetBedtimeDate.getDate() + 1);
+        diffMs = targetBedtimeDate - now;
+    } else if (now.getHours() < 6 && bedHrs >= 18) {
+        targetBedtimeDate.setDate(targetBedtimeDate.getDate() - 1);
+        diffMs = targetBedtimeDate - now;
+    }
+    
+    const timeBudgetMin = Math.floor(diffMs / 60000);
+    
+    let tier = "Full";
+    let reason = "";
+    
+    if (timeBudgetMin >= 60) {
+        tier = "Full";
+        reason = `You have plenty of time (${timeBudgetMin} min) before your target bedtime (${PrayerService.formatTo12Hour(bedtimeStr)}).`;
+    } else if (timeBudgetMin >= 30) {
+        tier = "Moderate";
+        reason = `Time is running short (${timeBudgetMin} min remaining until target bedtime ${PrayerService.formatTo12Hour(bedtimeStr)}).`;
+    } else if (timeBudgetMin >= 15) {
+        tier = "Compressed";
+        reason = `You are close to your target bedtime (${timeBudgetMin} min remaining until ${PrayerService.formatTo12Hour(bedtimeStr)}).`;
+    } else {
+        tier = "Emergency";
+        reason = `You are past or within 15 minutes of your target bedtime (${timeBudgetMin} min remaining until ${PrayerService.formatTo12Hour(bedtimeStr)}).`;
+    }
+    
+    // Energy level modifier
+    const energy = STATE.routineContext.energyLevel;
+    if (energy === "Exhausted") {
+        let prevTier = tier;
+        if (tier === "Full") tier = "Moderate";
+        else if (tier === "Moderate") tier = "Compressed";
+        else if (tier === "Compressed") tier = "Emergency";
+        
+        if (prevTier !== tier) {
+            reason += ` Downscaled to ${tier} tier due to Exhausted energy level.`;
+        }
+    }
+    
+    return {
+        tier: tier,
+        reason: reason,
+        timeBudget: timeBudgetMin
+    };
+}
+
+// Assemble steps dynamically for Pre-Bed routine
+function assemblePreBedSteps(tier, context) {
+    const steps = [];
+    const isWorkday = context.workdayTomorrow;
+    
+    // 1. Oral Hygiene (Emergency+)
+    steps.push({
+        task: "Oral Hygiene",
+        emoji: "🪥",
+        signifier: "critical",
+        est: "5 min",
+        notes: "Perform complete oral hygiene (Brush, Floss, Salt Gargle)"
+    });
+    
+    // 2. Warm Shower (Full only)
+    if (tier === "Full") {
+        steps.push({
+            task: "Warm Shower",
+            emoji: "🚿",
+            signifier: "critical",
+            est: "15 min",
+            notes: "Take a warm shower for thermal cooling (sleep signal) and spiritual cleanliness"
+        });
+    }
+    
+    // 3. Pray Isha (Emergency+)
+    steps.push({
+        task: "Pray Isha",
+        emoji: "🕌",
+        signifier: "critical",
+        est: "10 min",
+        notes: "Establish Isha prayer — spiritual close (non-negotiable)"
+    });
+    
+    // 4. Quick Declutter (Moderate+)
+    if (tier === "Full" || tier === "Moderate") {
+        steps.push({
+            task: "Quick Declutter",
+            emoji: "🧹",
+            signifier: "important",
+            est: "10 min",
+            notes: "Set a 10-minute timer to declutter high-visibility areas and kitchen counters.",
+            callout: {
+                type: "tip",
+                title: "Quick Declutter",
+                text: "Set a timer, stop when it goes off. High-visibility areas only: kitchen counter, living room, bedroom floor, bag staged by the door."
+            }
+        });
+    }
+    
+    // 5. Vitamins & Supplements (Compressed+)
+    if (tier !== "Emergency") {
+        steps.push({
+            task: "Vitamins & Supplements",
+            emoji: "💊",
+            signifier: "critical",
+            est: "2 min",
+            notes: "Take your evening vitamins and fish oil supplements"
+        });
+    }
+    
+    // 6. Log Blood Pressure (Moderate+, assumed always per comment)
+    if (tier === "Full" || tier === "Moderate") {
+        steps.push({
+            task: "Log Blood Pressure",
+            emoji: "🩺",
+            signifier: "important",
+            est: "2 min",
+            notes: "Log your evening blood pressure reading in Obsidian Daily Note"
+        });
+    }
+    
+    // 7. Evening Skincare (Full only)
+    if (tier === "Full") {
+        steps.push({
+            task: "Evening Skincare",
+            emoji: "🧴",
+            signifier: "important",
+            est: "5 min",
+            notes: "Cleanse, moisturize, and apply active skincare"
+        });
+    }
+    
+    // 8. Stage Commute Gear (Moderate+ & Workday)
+    if ((tier === "Full" || tier === "Moderate") && isWorkday) {
+        steps.push({
+            task: "Stage Commute Gear",
+            emoji: "🎒",
+            signifier: "critical",
+            est: "10 min",
+            notes: "Pack your work bag, stage lunch, and fill water bottle to enable tomorrow's morning.",
+            callout: {
+                type: "warning",
+                title: "Staging Bag",
+                text: "Skipping bag packing means 5–10 extra minutes lost in the morning rush."
+            }
+        });
+    }
+    
+    // 9. Set Wake Alarm (Compressed+ & Workday)
+    if (tier !== "Emergency" && isWorkday) {
+        steps.push({
+            task: "Set Wake Alarm",
+            emoji: "⏰",
+            signifier: "critical",
+            est: "1 min",
+            notes: "Confirm and set wake-up alarm before launching sleep protocol"
+        });
+    }
+    
+    // 10. Charge Devices (Emergency+)
+    steps.push({
+        task: "Charge Devices",
+        emoji: "🔌",
+        signifier: "critical",
+        est: "2 min",
+        notes: "Plug in phone and watch (charge phone away from bed if possible)"
+    });
+    
+    // 11. Gentle Stretching (Full only)
+    if (tier === "Full") {
+        steps.push({
+            task: "Gentle Stretching",
+            emoji: "🧘",
+            signifier: "important",
+            est: "8 min",
+            notes: "Perform gentle Yin yoga stretching for neck and shoulder release"
+        });
+    }
+    
+    // 12. Yoga Nidra Sleep (Full only)
+    if (tier === "Full") {
+        steps.push({
+            task: "Yoga Nidra Sleep",
+            emoji: "💤",
+            signifier: "important",
+            est: "15 min",
+            notes: "Run a Yoga Nidra or NSDR session to trigger deeply restorative sleep"
+        });
+    }
+    
+    return steps;
+}
+
+// Update the pre-bed recommendation display in selector UI
+function updatePreBedRecommendationUI() {
+    const rec = getPreBedRecommendation();
+    
+    const recNameEl = document.getElementById("prebed-rec-name");
+    const recReasonEl = document.getElementById("prebed-rec-reasoning");
+    const recDurationEl = document.getElementById("prebed-rec-duration");
+    const startBtn = document.getElementById("btn-prebed-start");
+    const emergencyBanner = document.getElementById("prebed-emergency-banner");
+    
+    if (recNameEl) recNameEl.innerText = `${rec.tier} Tier`;
+    if (recReasonEl) recReasonEl.innerText = rec.reason;
+    
+    const steps = assemblePreBedSteps(rec.tier, STATE.routineContext);
+    const totalMin = getDurationMinutes(steps);
+    if (recDurationEl) recDurationEl.innerText = formatDuration(totalMin);
+    
+    if (startBtn) {
+        startBtn.dataset.recommendedTier = rec.tier;
+        startBtn.innerText = `Start Suggested Routine (${formatDuration(totalMin)})`;
+    }
+    
+    if (emergencyBanner) {
+        if (rec.tier === "Emergency") {
+            emergencyBanner.innerHTML = `
+                <div class="emergency-alert-banner">
+                    <span class="emergency-alert-icon">🚨</span>
+                    <div class="emergency-alert-content">
+                        <h4>Sleep Deadline Breached</h4>
+                        <p>You have only ${rec.timeBudget}m remaining. Protect your Fajr wakeup: pray, plug in, and sleep immediately.</p>
+                    </div>
+                </div>
+            `;
+            emergencyBanner.style.display = "flex";
+        } else {
+            emergencyBanner.style.display = "none";
+        }
+    }
+}
+
+// Initialize Prayer Widget on App Start
+async function initPrayerWidget() {
+    try {
+        const widget = document.getElementById("prayer-info-widget");
+        if (!widget) return;
+        
+        let timings = PrayerService.getCachedData()?.timings;
+        if (!timings) {
+            console.log("[Prayer] Requesting coordinates for prayer times...");
+            const coords = await PrayerService.getCoordinates();
+            timings = await PrayerService.fetchTimings(coords.latitude, coords.longitude);
+        }
+        
+        if (timings) {
+            const targets = PrayerService.calculateSleepTargets(timings.Sunrise);
+            widget.innerHTML = `
+                <div class="prayer-widget-item">
+                    <span class="prayer-widget-label">🕌 Fajr</span>
+                    <span class="prayer-widget-val">${PrayerService.formatTo12Hour(timings.Fajr)}</span>
+                </div>
+                <div class="prayer-widget-item">
+                    <span class="prayer-widget-label">🌅 Sunrise</span>
+                    <span class="prayer-widget-val">${PrayerService.formatTo12Hour(timings.Sunrise)}</span>
+                </div>
+                <div class="prayer-widget-item">
+                    <span class="prayer-widget-label">⏰ Latest Wake</span>
+                    <span class="prayer-widget-val">${PrayerService.formatTo12Hour(targets.latestWakeUp)}</span>
+                </div>
+                <div class="prayer-widget-item highlight-item">
+                    <span class="prayer-widget-label">🛌 Bedtime</span>
+                    <span class="prayer-widget-val">${PrayerService.formatTo12Hour(targets.targetBedtime)}</span>
+                </div>
+            `;
+            widget.style.display = "grid";
+            
+            STATE.prayerTimings = timings;
+            STATE.sleepTargets = targets;
+            renderDashboard(); // Re-render dashboard to show dynamic pre-bed window
+        }
+    } catch (e) {
+        console.warn("[Prayer] Could not initialize prayer widget:", e);
+        const widget = document.getElementById("prayer-info-widget");
+        if (widget) {
+            widget.innerHTML = `
+                <div style="grid-column: span 4; text-align: center; font-size: 0.8rem; color: var(--text-muted); padding: 8px;">
+                    ⚠️ Geolocation or internet required for accurate prayer-driven sleep scheduling.
+                    <button onclick="window.retryPrayerTimes()" class="manual-override-btn" style="display:inline-block; margin-left: 10px; padding: 2px 8px; font-size: 0.75rem;">Retry</button>
+                </div>
+            `;
+            widget.style.display = "grid";
+        }
+    }
+}
+
+window.retryPrayerTimes = async function() {
+    localStorage.removeItem(PrayerService.cacheKey);
+    await initPrayerWidget();
+};
+
 // Step 1: Click Routine -> Show Variant selector
 function selectRoutine(routineKey) {
     const routine = ROUTINES_DB[routineKey];
@@ -706,7 +1053,7 @@ function selectRoutine(routineKey) {
     
     document.getElementById("selector-routine-icon").innerText = routine.icon;
     document.getElementById("selector-routine-name").innerText = routine.title;
-    document.getElementById("selector-routine-window").innerText = `Ideal window: ${routine.window} | Area: ${routine.area}`;
+    document.getElementById("selector-routine-window").innerText = `Ideal window: ${routine.window}`;
     
     const selectionCard = document.querySelector(".selection-card");
     
@@ -869,6 +1216,164 @@ function selectRoutine(routineKey) {
         // Initial draw of recommendation
         updateWakeupRecommendationUI();
         
+    } else if (routineKey === "pre_bed") {
+        initPreBedContext();
+        
+        selectionCard.innerHTML = `
+            <h2>How are you approaching this routine today?</h2>
+            <p class="selection-sub">Select your context to dynamically calibrate your sequence steps.</p>
+            
+            <div class="context-card-container">
+                <div class="context-grid">
+                    <!-- Day of Week selector -->
+                    <div class="context-item">
+                        <span class="context-icon">📅</span>
+                        <div class="context-field-wrapper">
+                            <label for="input-prebed-day">Day of Week</label>
+                            <select id="input-prebed-day" class="context-select" disabled>
+                                <option value="Monday">Monday</option>
+                                <option value="Tuesday">Tuesday</option>
+                                <option value="Wednesday">Wednesday</option>
+                                <option value="Thursday">Thursday</option>
+                                <option value="Friday">Friday</option>
+                                <option value="Saturday">Saturday</option>
+                                <option value="Sunday">Sunday</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Current Time input -->
+                    <div class="context-item">
+                        <span class="context-icon">⏰</span>
+                        <div class="context-field-wrapper">
+                            <label for="input-prebed-time">Current Time</label>
+                            <input type="time" id="input-prebed-time" class="context-input-time" disabled>
+                        </div>
+                    </div>
+
+                    <!-- Tomorrow is Workday Toggle -->
+                    <div class="context-item wide-item">
+                        <span class="context-icon">💼</span>
+                        <div class="context-field-wrapper">
+                            <label>Tomorrow is a Workday?</label>
+                            <div class="toggle-group" id="toggle-prebed-workday">
+                                <button type="button" class="toggle-btn" data-val="true">Yes</button>
+                                <button type="button" class="toggle-btn" data-val="false">No</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Energy Level Selector -->
+                    <div class="context-item wide-item">
+                        <span class="context-icon">⚡</span>
+                        <div class="context-field-wrapper">
+                            <label>Energy Level Tonight?</label>
+                            <div class="energy-group" id="group-prebed-energy">
+                                <button type="button" class="energy-btn energy-fresh" data-val="Fresh">Fresh</button>
+                                <button type="button" class="energy-btn energy-normal" data-val="Normal">Normal</button>
+                                <button type="button" class="energy-btn energy-exhausted" data-val="Exhausted">Exhausted</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="prebed-emergency-banner" style="display:none; margin-top: 10px;"></div>
+
+                <div class="recommendation-box" style="margin-top: 15px;">
+                    <div class="recommendation-header">
+                        <span class="recommendation-bulb">💡</span>
+                        <h3>Suggested: <span id="prebed-rec-name" class="rec-highlight">Standard Variant</span></h3>
+                    </div>
+                    <p id="prebed-rec-reasoning" class="recommendation-reasoning">
+                        Based on context inputs.
+                    </p>
+                </div>
+
+                <button id="btn-prebed-start" class="btn-full primary-btn pulse-glow" style="margin-top: 15px; width: 100%; font-family: inherit; font-size: 1rem; font-weight: 700; height: 50px; border: none; border-radius: 14px; cursor: pointer; display: flex; align-items: center; justify-content: center; color: white; background: var(--gradient-primary); box-shadow: 0 4px 15px rgba(99, 102, 241, 0.4);">
+                    Start Suggested Routine
+                </button>
+
+                <div class="manual-override-section" style="margin-top: 15px;">
+                    <span class="manual-override-label">Or pick manually:</span>
+                    <div class="manual-btn-group">
+                        <button class="manual-override-btn prebed-override-btn" data-tier="Full">Full</button>
+                        <button class="manual-override-btn prebed-override-btn" data-tier="Moderate">Moderate</button>
+                        <button class="manual-override-btn prebed-override-btn" data-tier="Compressed">Compressed</button>
+                        <button class="manual-override-btn prebed-override-btn" data-tier="Emergency">Emergency</button>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        // Populate inputs
+        const selectDay = document.getElementById("input-prebed-day");
+        const inputTime = document.getElementById("input-prebed-time");
+        
+        if (selectDay) selectDay.value = STATE.routineContext.dayOfWeek;
+        if (inputTime) inputTime.value = STATE.routineContext.currentTime;
+        
+        setToggleState("toggle-prebed-workday", STATE.routineContext.workdayTomorrow);
+        setEnergyState("group-prebed-energy", STATE.routineContext.energyLevel);
+        
+        // Event listeners
+        if (selectDay) {
+            selectDay.onchange = (e) => {
+                STATE.routineContext.dayOfWeek = e.target.value;
+                const isWeekendTomorrow = (e.target.value === "Friday" || e.target.value === "Saturday");
+                STATE.routineContext.workdayTomorrow = !isWeekendTomorrow;
+                setToggleState("toggle-prebed-workday", STATE.routineContext.workdayTomorrow);
+                updatePreBedRecommendationUI();
+            };
+        }
+        
+        if (inputTime) {
+            inputTime.onchange = (e) => {
+                STATE.routineContext.currentTime = e.target.value;
+                updatePreBedRecommendationUI();
+            };
+        }
+        
+        // Workday toggles
+        const workdayBtns = document.querySelectorAll("#toggle-prebed-workday .toggle-btn");
+        workdayBtns.forEach(btn => {
+            btn.onclick = () => {
+                const val = btn.dataset.val === "true";
+                STATE.routineContext.workdayTomorrow = val;
+                setToggleState("toggle-prebed-workday", val);
+                updatePreBedRecommendationUI();
+            };
+        });
+        
+        // Energy buttons
+        const energyBtns = document.querySelectorAll("#group-prebed-energy .energy-btn");
+        energyBtns.forEach(btn => {
+            btn.onclick = () => {
+                const val = btn.dataset.val;
+                STATE.routineContext.energyLevel = val;
+                setEnergyState("group-prebed-energy", val);
+                updatePreBedRecommendationUI();
+            };
+        });
+        
+        // Start button
+        const startBtn = document.getElementById("btn-prebed-start");
+        if (startBtn) {
+            startBtn.onclick = () => {
+                const tier = startBtn.dataset.recommendedTier || "Full";
+                startRoutine("pre_bed", tier);
+            };
+        }
+        
+        // Manual override buttons
+        const manualBtns = document.querySelectorAll(".prebed-override-btn");
+        manualBtns.forEach(btn => {
+            btn.onclick = () => {
+                const tier = btn.dataset.tier;
+                startRoutine("pre_bed", tier);
+            };
+        });
+        
+        updatePreBedRecommendationUI();
     } else {
         // Original selection card layout restoration
         selectionCard.innerHTML = `
@@ -922,7 +1427,12 @@ function startRoutine(routineKey, variantName) {
     STATE.activeRoutine = routine;
     STATE.activeVariant = variantName;
     
-    let steps = [...routine.variants[variantName]];
+    let steps;
+    if (routineKey === "pre_bed") {
+        steps = assemblePreBedSteps(variantName, STATE.routineContext);
+    } else {
+        steps = [...routine.variants[variantName]];
+    }
     
     // Context-driven modifications for Morning Wakeup Routine
     if (routineKey === "wakeup") {
@@ -1827,6 +2337,9 @@ document.addEventListener("DOMContentLoaded", () => {
     
     // Initialize Dashboard
     renderDashboard();
+    
+    // Initialize Prayer & Sleep Widget
+    initPrayerWidget();
 });
 
 // Verification Test Suite for Context-Driven Routine Recommendation
@@ -1909,6 +2422,151 @@ window.runAdaptationTests = function() {
     } finally {
         // Restore context
         STATE.routineContext = originalContext;
+    }
+};
+
+// Verification Test Suite for Pre-Bed dynamic adaptation
+window.runPreBedTests = function() {
+    console.log("=== RUNNING PRE-BED CONTEXT ADAPTATION TESTS ===");
+    let passCount = 0;
+    let failCount = 0;
+    
+    function assertEqual(actual, expected, message) {
+        if (actual === expected) {
+            console.log(`%c[PASS] ${message}`, "color: #10b981; font-weight: bold;");
+            passCount++;
+        } else {
+            console.error(`[FAIL] ${message} - Expected: "${expected}", Actual: "${actual}"`);
+            failCount++;
+        }
+    }
+    
+    const originalContext = { ...STATE.routineContext };
+    const originalSleepTargets = STATE.sleepTargets ? { ...STATE.sleepTargets } : null;
+    
+    try {
+        // Mock target bedtime: 22:00 (10:00 PM)
+        STATE.sleepTargets = {
+            targetBedtime: "22:00",
+            latestWakeUp: "06:00"
+        };
+        
+        // Helper to construct a specific date and time on a Monday
+        function getMockDate(timeStr) {
+            const date = new Date("2026-06-15T00:00:00"); // A Monday
+            const [hrs, mins] = timeStr.split(':').map(Number);
+            date.setHours(hrs, mins, 0, 0);
+            return date;
+        }
+
+        // Test Case 1: Time Budget >= 60 min (Full tier)
+        STATE.routineContext = {
+            dayOfWeek: "Monday",
+            currentTime: "20:00",
+            workdayTomorrow: true,
+            energyLevel: "Normal"
+        };
+        assertEqual(
+            getPreBedRecommendation(getMockDate("20:00")).tier,
+            "Full",
+            "8:00 PM recommends Full tier (120m budget)"
+        );
+
+        // Test Case 2: Time Budget between 30 and 59 min (Moderate tier)
+        STATE.routineContext = {
+            dayOfWeek: "Monday",
+            currentTime: "21:15",
+            workdayTomorrow: true,
+            energyLevel: "Normal"
+        };
+        assertEqual(
+            getPreBedRecommendation(getMockDate("21:15")).tier,
+            "Moderate",
+            "9:15 PM recommends Moderate tier (45m budget)"
+        );
+
+        // Test Case 3: Time Budget between 15 and 29 min (Compressed tier)
+        STATE.routineContext = {
+            dayOfWeek: "Monday",
+            currentTime: "21:40",
+            workdayTomorrow: true,
+            energyLevel: "Normal"
+        };
+        assertEqual(
+            getPreBedRecommendation(getMockDate("21:40")).tier,
+            "Compressed",
+            "9:40 PM recommends Compressed tier (20m budget)"
+        );
+
+        // Test Case 4: Time Budget < 15 min (Emergency tier)
+        STATE.routineContext = {
+            dayOfWeek: "Monday",
+            currentTime: "21:50",
+            workdayTomorrow: true,
+            energyLevel: "Normal"
+        };
+        assertEqual(
+            getPreBedRecommendation(getMockDate("21:50")).tier,
+            "Emergency",
+            "9:50 PM recommends Emergency tier (10m budget)"
+        );
+
+        // Test Case 5: Midnight boundary (current time 12:12 AM, target bedtime 10:00 PM yesterday)
+        // If current time is 12:12 AM on Tuesday (June 16), target bedtime was 10:00 PM on Monday (June 15).
+        // Since current time is after bedtime, it should recommend Emergency.
+        const mockTuesdayMidnight = new Date("2026-06-16T00:12:00");
+        STATE.routineContext = {
+            dayOfWeek: "Tuesday",
+            currentTime: "00:12",
+            workdayTomorrow: true,
+            energyLevel: "Normal"
+        };
+        assertEqual(
+            getPreBedRecommendation(mockTuesdayMidnight).tier,
+            "Emergency",
+            "12:12 AM recommends Emergency tier (bedtime was 10:00 PM yesterday)"
+        );
+
+        // Test Case 6: Energy Level Exhausted (downgrade Moderate -> Compressed)
+        STATE.routineContext = {
+            dayOfWeek: "Monday",
+            currentTime: "21:15",
+            workdayTomorrow: true,
+            energyLevel: "Exhausted"
+        };
+        assertEqual(
+            getPreBedRecommendation(getMockDate("21:15")).tier,
+            "Compressed",
+            "9:15 PM with Exhausted energy downscales Moderate to Compressed"
+        );
+
+        // Test Case 7: Steps Assembly - Workday vs Weekend tomorrow
+        // Workday tomorrow -> includes Stage Commute Gear and Set Wake Alarm
+        STATE.routineContext = {
+            dayOfWeek: "Monday",
+            currentTime: "20:00",
+            workdayTomorrow: true,
+            energyLevel: "Normal"
+        };
+        const workdaySteps = assemblePreBedSteps("Full", STATE.routineContext);
+        const hasCommuteGear = workdaySteps.some(s => s.task === "Stage Commute Gear");
+        assertEqual(hasCommuteGear, true, "Workday context includes Stage Commute Gear");
+
+        // Weekend tomorrow (Friday night) -> does not include Stage Commute Gear
+        STATE.routineContext = {
+            dayOfWeek: "Friday",
+            currentTime: "20:00",
+            workdayTomorrow: false,
+            energyLevel: "Normal"
+        };
+        const weekendSteps = assemblePreBedSteps("Full", STATE.routineContext);
+        const hasCommuteGearWeekend = weekendSteps.some(s => s.task === "Stage Commute Gear");
+        assertEqual(hasCommuteGearWeekend, false, "Weekend context excludes Stage Commute Gear");
+
+        console.log(`=== PRE-BED TEST SUMMARY: ${passCount} PASSED, ${failCount} FAILED ===`);
+    } finally {
+        STATE.routineContext = originalContext;
+        STATE.sleepTargets = originalSleepTargets;
     }
 };
 

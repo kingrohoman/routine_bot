@@ -1,9 +1,10 @@
-const CACHE_NAME = 'routine-bot-v3';
+const CACHE_NAME = 'routine-bot-v4';
 const ASSETS = [
   './',
   './index.html',
   './style.css',
   './app.js',
+  './prayer-service.js',
   './manifest.json',
   './icon-192.png',
   './icon-512.png'
